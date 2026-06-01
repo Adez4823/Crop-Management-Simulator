@@ -6,11 +6,12 @@ class Field:
 
     Attributes:
         num_plants (int): The number of crops planted in the field.
-        moisture_percent (float): Represents the how wet/dry the field is as a percentage.
+        moisture_percent (int): Represents the how wet/dry the field is as a percentage.
+        fertilizer_percent (int): Represents how fertilized the field is as a percentage
 
     """
 
-    def __init__(self, num_plants=0, moisture_percent=0.0, fertilizer_percent=0.0):
+    def __init__(self, num_plants=0, moisture_percent=0, fertilizer_percent=0):
         self.num_plants = num_plants
         self.moisture_percent = moisture_percent
         self.fertilizer_percent = fertilizer_percent
@@ -19,28 +20,28 @@ class Field:
         """
         Add water to the field.
 
-        Adds 0.1 to the field's moisture, given the field is not fully watered.
+        Adds 10 to the field's moisture, given the field is not fully watered.
         """
 
         # Users can only water their field if it is not fully watered.
-        if (self.moisture_percent >= 1.0):
+        if self.moisture_percent >= 100:
             print("Your field is already completely watered")
         else:
-            self.moisture_percent += 0.1
+            self.moisture_percent += 10
             print(f"You watered your field, its moisture content is now {self.moisture_percent}")
 
     def fertilize_field(self):
         """
         Add fertilizer to the field.
 
-        Adds 0.2 to the field's fertilizer percentage given the field is less than 80% fertilized.
+        Adds 20 to the field's fertilizer percentage given the field is less than 80% fertilized.
         """
 
-        # Users can only fertilize their field it is less than 80% fertilized
-        if (self.fertilizer_percent >= 0.8):
+        # Users can only fertilize their field it is 80% fertilized or less
+        if self.fertilizer_percent > 80:
             print("You cannot fertilize right now (too much fertilizer)!")
         else:
-            self.fertilizer_percent += 0.2
+            self.fertilizer_percent += 20
             print(f"You added fertilzer to your field, its fertilizer percentage is now {self.fertilizer_percent}")
     
     def plant_crop(self, plant_type):
@@ -56,7 +57,7 @@ class Field:
         """
 
         # Users cannot plant crops if their field is full
-        if (self.num_plants == 100):
+        if self.num_plants == 100:
             print("Your field is full, harvest some crops before planting more!")
         else:
             self.num_plants += 1
@@ -74,7 +75,7 @@ class Field:
         """
 
         # Users cannot harvest from an empty field
-        if (self.num_plants <= 0):
+        if self.num_plants <= 0:
             print("There are no plants to harvest!")
         else:
             self.num_plants -= 1
