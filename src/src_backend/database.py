@@ -1,5 +1,6 @@
 import psycopg
 import os
+from user import User
 
 def connect_to_db():
     """
@@ -30,7 +31,11 @@ def create_tables():
     path_schema = os.path.join(os.path.dirname(__file__), "schema.sql")
 
     with open(path_schema, "r") as f:
-        cur.execute(f.read())
+        sql_statements = f.read()
+
+    for statement in sql_statements.split(";"):
+        if statement.strip():
+            cur.execute(statement)
 
     # Initialize the crop_types table to default values
     cur.execute("""
@@ -49,3 +54,80 @@ def create_tables():
     conn.commit()
     cur.close()
     conn.close()
+
+def insert_user_to_db(user_obj):
+    """
+    Inserts a user into the user table of the database
+
+    Args:
+        user_obj (User): The user object to be inserted
+
+    Raises:
+        UniqueViolation: If the username is already taken
+    
+    Returns:
+        True/False (boolean): True if the user was inserted successfully
+
+    """
+
+    conn = connect_to_db()
+    cur = conn.cursor()
+    
+    # User's cannot use the same username as another
+    try:
+        cur.execute(
+            """
+            INSERT INTO users (username, password, money)
+            VALUES (%s, %s, %s)
+            """,
+            (user_obj.username, user_obj.password, user_obj.money)
+        )
+        conn.commit()
+        print("User sucessfully inserted to DB")
+        return True
+    # Don't update DB if there's an exception
+    except psycopg.errors.UniqueViolation as e:
+        conn.rollback()
+        print("Username already exists!")
+        return False
+
+    finally:
+        cur.close()
+        conn.close()
+
+def user_sign_in(username, pw):
+    """
+    Tries to get the user's info given username + password
+
+    The method will return -1 if the user does not exist within the database
+
+    Args:
+        username (str): The user's username that was inputted to the login interface
+        pw       (str): The user's password that was inputted to the login interface
+    
+    Returns:
+        money    (int): The user's amount of money
+
+    Raises:
+        Exception: If there is something wrong with the DB
+    """
+    try:
+        conn = connect_to_db()
+        cur = conn.cursor()
+
+        cur.execute("SELECT money FROM users WHERE username = %s and password = %s", (username, pw))
+
+        user_row = cur.fetchone()
+
+        # Users must provide valid login credentials
+        if user_row is None:
+            return -1 # -1 signifies credentials not found
+        else:
+            money = user_row[0]
+            return money
+        
+    # Close connection in the case of an exception
+    finally:
+        cur.close()
+        conn.close()
+    
