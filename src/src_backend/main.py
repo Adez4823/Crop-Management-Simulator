@@ -104,6 +104,7 @@ def handle_login_choice(choice_int):
         None: Returned if invalid login/signup credentials are provided
 
     """
+    global test_field
 
     # 1 = login
     if choice_int == 1:
