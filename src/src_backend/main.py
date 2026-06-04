@@ -116,7 +116,8 @@ def handle_login_choice(choice_int):
         # Users must enter valid login credentials
         if (money >= 0):
             curr_user = User(username, password, money)
-            test_field = load_user_field(curr_user)
+            num_planted, moisture_percent, fertilizer_percent  = load_user_field(curr_user.username, curr_user.password)
+            test_field = Field(num_planted, moisture_percent, fertilizer_percent)
             return curr_user
         else:
             print("Invalid login credentials!")
@@ -126,10 +127,10 @@ def handle_login_choice(choice_int):
     elif choice_int == 2:
         login_list = get_login_info() # get [username, pw]
         curr_user = User(login_list[0], login_list[1])
-        insertion_successfull = insert_user_to_db(curr_user)
+        insertion_successfull = insert_user_to_db(curr_user.username, curr_user.password)
         
         if insertion_successfull:
-            insert_new_user_field(curr_user)
+            insert_new_user_field(curr_user.username, curr_user.password)
             return curr_user
         else:
             return None
@@ -179,7 +180,7 @@ def main():
 
     create_tables()
     curr_user = login_signup_interface()
-    print(f"Test field plants {test_field.num_plants}")
+    print(f"Test field num {test_field.num_plants}")
 
 
     while (running): # Game loop

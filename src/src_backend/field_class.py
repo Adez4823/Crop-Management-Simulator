@@ -60,7 +60,7 @@ class Field:
             print("Your field is full, harvest some crops before planting more!")
         else:
             self.num_plants = self.num_plants + 1
-            plant_crop_db(user_obj, plant_type)
+            plant_crop_db(user_obj.username, user_obj.password, plant_type)
             print(f"You planted a {plant_type} crop in your field! There are now {self.num_plants} in your field.")
 
     def harvest_crop(self, crop_id):

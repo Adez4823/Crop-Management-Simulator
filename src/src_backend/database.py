@@ -1,7 +1,5 @@
 import psycopg
 import os
-from user import User
-from field_class import Field
 
 def connect_to_db():
     """
@@ -132,7 +130,7 @@ def user_sign_in(username, pw):
         cur.close()
         conn.close()
 
-def insert_new_user_field(user_obj):
+def insert_new_user_field(username, password):
     """
     Create a new entry into the database, containing default values for the user's new field.
 
@@ -145,7 +143,7 @@ def insert_new_user_field(user_obj):
     conn = connect_to_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id FROM users WHERE username = %s and password = %s;", (user_obj.username, user_obj.password))
+    cur.execute("SELECT user_id FROM users WHERE username = %s and password = %s;", (username, password))
 
     user_row = cur.fetchone()
     user_id = user_row[0]
@@ -162,7 +160,7 @@ def insert_new_user_field(user_obj):
     cur.close()
     conn.close()
 
-def plant_crop_db(user_obj, crop_name):
+def plant_crop_db(username, password, crop_name):
     """
     Allows the user to plant a crop by updating the DB
 
@@ -177,7 +175,7 @@ def plant_crop_db(user_obj, crop_name):
     cur = conn.cursor()
 
     # Get user_id
-    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (user_obj.username, user_obj.password))
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
     user_row = cur.fetchone()
     user_id = user_row[0]
 
@@ -208,7 +206,7 @@ def plant_crop_db(user_obj, crop_name):
     cur.close()
     conn.close()
 
-def load_user_field(user_obj):
+def load_user_field(username, password):
     """
     Query the database to get the field corresponding to the user
 
@@ -224,7 +222,7 @@ def load_user_field(user_obj):
     cur = conn.cursor()
 
     # Get user ID
-    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (user_obj.username, user_obj.password))
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
     user_row = cur.fetchone()
     user_id = user_row[0]
 
@@ -235,10 +233,9 @@ def load_user_field(user_obj):
     moisture_percent = field_row[3]
     fertilizer_percent = field_row[4]
 
-    # Create the user's field object
-    user_field = Field(num_planted, moisture_percent, fertilizer_percent)
 
     cur.close()
     conn.close()
 
-    return user_field
+    # Return the data needed to construct the user's field
+    return num_planted, moisture_percent, fertilizer_percent
