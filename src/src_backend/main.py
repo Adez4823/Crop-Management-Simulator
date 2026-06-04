@@ -10,6 +10,7 @@ load_dotenv("../../.env")
 # Global Variables
 running = True
 test_field = Field()
+curr_user = None
 
 def get_login_info():
     """
@@ -53,6 +54,7 @@ def handle_choice(choice):
         choice (str): The user's choice as a string
 
     """
+    global curr_user
 
     choice_int = str_to_int(choice)
 
@@ -64,7 +66,7 @@ def handle_choice(choice):
     elif choice_int == 2:
         test_field.fertilize_field()
     elif choice_int == 3:
-        test_field.plant_crop("Corn")
+        test_field.plant_crop(curr_user, "Potato")
     elif choice_int == 4:
         test_field.harvest_crop()
     else: # Users must enter a valid choice
@@ -125,6 +127,7 @@ def handle_login_choice(choice_int):
         insertion_successfull = insert_user_to_db(curr_user)
         
         if insertion_successfull:
+            insert_new_user_field(curr_user)
             return curr_user
         else:
             return None
@@ -161,7 +164,7 @@ def login_signup_interface():
         # User must successfully login or create an account or this interface will be displayed indefinitely
         if logged_user is not None:
             break
-    
+
     return logged_user
 
 def main():
@@ -169,11 +172,14 @@ def main():
     Main game logic and loop
 
     """
+    global curr_user
+
     create_tables()
-    current_user = login_signup_interface()
+    curr_user = login_signup_interface()
+
 
     while (running): # Game loop
-        display_interface(current_user)
+        display_interface(curr_user)
 
         print("Enter your choice: ", end="") # Get user input
         choice = input().strip()

@@ -1,3 +1,5 @@
+from database import *
+
 class Field:
     """
     Represents a user's field.
@@ -44,14 +46,12 @@ class Field:
             self.fertilizer_percent += 20
             print(f"You added fertilzer to your field, its fertilizer percentage is now {self.fertilizer_percent}")
     
-    def plant_crop(self, plant_type):
+    def plant_crop(self, user_obj, plant_type):
         """
         Plant a crop in the field.
 
-        This method is unfinished, it will be updated as the simulator is developed and when the SQL database is created.
-        Currently, it just increments the number of plants in the field if it isn't full.
-
         Args:
+            user_obj  (User): The User object that represents the current user
             plant_type (str): The type of crop to be planted.
 
         """
@@ -60,7 +60,8 @@ class Field:
         if self.num_plants == 100:
             print("Your field is full, harvest some crops before planting more!")
         else:
-            self.num_plants += 1
+            self.num_plants = self.num_plants + 1
+            plant_crop_db(user_obj, plant_type)
             print(f"You planted a {plant_type} crop in your field! There are now {self.num_plants} in your field.")
 
     def harvest_crop(self, crop_id):

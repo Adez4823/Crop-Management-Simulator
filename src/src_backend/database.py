@@ -115,7 +115,7 @@ def user_sign_in(username, pw):
         conn = connect_to_db()
         cur = conn.cursor()
 
-        cur.execute("SELECT money FROM users WHERE username = %s and password = %s", (username, pw))
+        cur.execute("SELECT money FROM users WHERE username = %s AND password = %s", (username, pw))
 
         user_row = cur.fetchone()
 
@@ -130,4 +130,80 @@ def user_sign_in(username, pw):
     finally:
         cur.close()
         conn.close()
+
+def insert_new_user_field(user_obj):
+    """
+    Create a new entry into the database, containing default values for the user's new field.
+
+    This method is used right after account creation in order to initialize a field for the user as well as initialize the planted crops within the field.
+
+    Args:
+        User: The User object that represents the current user
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT user_id FROM users WHERE username = %s and password = %s", (user_obj.username, user_obj.password))
+
+    user_row = cur.fetchone()
+    user_id = user_row[0]
+
+    # Create default fields entry
+    cur.execute("""
+    INSERT INTO fields 
+    (user_id, num_planted, moisture_percent, fertilizer_percent) 
+    VALUES 
+            (%s, %s, %s, %s);""", 
+            (user_id, 0, 0, 0) 
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def plant_crop_db(user_obj, crop_name):
+    """
+    Allows the user to plant a crop by updating the DB
+
+    Increments the fields table's num_planted and inserts a row to the crops_planted table
+
+    Args:
+        user_obj (User): Represents the current user
+        crop_name (str): The name of the crop to be planted
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    # Get user_id
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s", (user_obj.username, user_obj.password))
+    user_row = cur.fetchone()
+    user_id = user_row[0]
+
+    # Get total growth time given the crop name
+    cur.execute("SELECT total_growth_time_seconds FROM crop_types WHERE crop_type = %s", (crop_name,))
+    crop_row = cur.fetchone()
+    total_growth_time = crop_row[0]
+
+    # Increment num_planted in the player's field and get field_id
+    cur.execute("""UPDATE fields 
+                SET num_planted = num_planted + %s WHERE user_id = %s
+                RETURNING field_id;""", (1, user_id))
     
+    result = cur.fetchone()
+    field_id = result[0] if result else None
+    
+    # Add row to planted_crops table
+    cur.execute("""
+        INSERT INTO planted_crops 
+        (field_id, crop_type, total_growth_time_seconds) 
+        VALUES 
+            (%s, %s, %s);
+    """, (field_id, crop_name, total_growth_time))
+    
+
+
+    conn.commit()
+    cur.close()
+    conn.close()
+

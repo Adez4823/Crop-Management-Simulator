@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS planted_crops (
     planted_crop_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
     field_id INT NOT NULL, 
     crop_type VARCHAR(32) NOT NULL, 
-    date_planted DATE NOT NULL, 
+    date_planted DATE NOT NULL DEFAULT CURRENT_DATE, 
     total_growth_time_seconds INT, 
     FOREIGN KEY(field_id) REFERENCES fields(field_id) ON DELETE CASCADE
 );
