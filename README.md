@@ -38,7 +38,7 @@ pip install -r requirements.txt
 If running in docker, the DB_HOST must be overridden.<br>
 Run docker with these commands:<br>
 docker build -t application_name .<br>
-docker run -t -i --env-file .env -e DB_HOST=host.docker.internal crop-app<br>
+docker run -t -i --env-file .env -e DB_HOST=host.docker.internal application_name<br>
 
 Otherwise, if running locally:<br>
 cd src/src_backend<br>
