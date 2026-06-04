@@ -1,5 +1,3 @@
-from database import *
-
 class Field:
     """
     Represents a user's field.
@@ -55,6 +53,7 @@ class Field:
             plant_type (str): The type of crop to be planted.
 
         """
+        from database import plant_crop_db
 
         # Users cannot plant crops if their field is full
         if self.num_plants == 100:

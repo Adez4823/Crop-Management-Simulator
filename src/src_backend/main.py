@@ -1,6 +1,6 @@
 import sys
 from user import User
-from field import *
+from field_class import *
 from crop import *
 from database import *
 
@@ -116,6 +116,7 @@ def handle_login_choice(choice_int):
         # Users must enter valid login credentials
         if (money >= 0):
             curr_user = User(username, password, money)
+            test_field = load_user_field(curr_user)
             return curr_user
         else:
             print("Invalid login credentials!")
@@ -174,9 +175,11 @@ def main():
 
     """
     global curr_user
+    global test_field
 
     create_tables()
     curr_user = login_signup_interface()
+    print(f"Test field plants {test_field.num_plants}")
 
 
     while (running): # Game loop

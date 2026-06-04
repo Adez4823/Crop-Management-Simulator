@@ -1,6 +1,7 @@
 import psycopg
 import os
 from user import User
+from field_class import Field
 
 def connect_to_db():
     """
@@ -115,7 +116,7 @@ def user_sign_in(username, pw):
         conn = connect_to_db()
         cur = conn.cursor()
 
-        cur.execute("SELECT money FROM users WHERE username = %s AND password = %s", (username, pw))
+        cur.execute("SELECT money FROM users WHERE username = %s AND password = %s;", (username, pw))
 
         user_row = cur.fetchone()
 
@@ -144,7 +145,7 @@ def insert_new_user_field(user_obj):
     conn = connect_to_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id FROM users WHERE username = %s and password = %s", (user_obj.username, user_obj.password))
+    cur.execute("SELECT user_id FROM users WHERE username = %s and password = %s;", (user_obj.username, user_obj.password))
 
     user_row = cur.fetchone()
     user_id = user_row[0]
@@ -176,12 +177,12 @@ def plant_crop_db(user_obj, crop_name):
     cur = conn.cursor()
 
     # Get user_id
-    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s", (user_obj.username, user_obj.password))
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (user_obj.username, user_obj.password))
     user_row = cur.fetchone()
     user_id = user_row[0]
 
     # Get total growth time given the crop name
-    cur.execute("SELECT total_growth_time_seconds FROM crop_types WHERE crop_type = %s", (crop_name,))
+    cur.execute("SELECT total_growth_time_seconds FROM crop_types WHERE crop_type = %s;", (crop_name,))
     crop_row = cur.fetchone()
     total_growth_time = crop_row[0]
 
@@ -207,3 +208,37 @@ def plant_crop_db(user_obj, crop_name):
     cur.close()
     conn.close()
 
+def load_user_field(user_obj):
+    """
+    Query the database to get the field corresponding to the user
+
+    Args:
+        user_obj (User): Represents the current user
+    
+    Returns:
+        Field: The field object that corresponds to the current user
+
+    """
+
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    # Get user ID
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (user_obj.username, user_obj.password))
+    user_row = cur.fetchone()
+    user_id = user_row[0]
+
+    # Get the corresponding field row
+    cur.execute("SELECT * FROM fields WHERE user_id = %s;", (user_id,))
+    field_row = cur.fetchone()
+    num_planted = field_row[2]
+    moisture_percent = field_row[3]
+    fertilizer_percent = field_row[4]
+
+    # Create the user's field object
+    user_field = Field(num_planted, moisture_percent, fertilizer_percent)
+
+    cur.close()
+    conn.close()
+
+    return user_field
