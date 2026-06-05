@@ -107,8 +107,6 @@ def user_sign_in(username, pw):
     Returns:
         money    (int): The user's amount of money
 
-    Raises:
-        Exception: If there is something wrong with the DB
     """
     try:
         conn = connect_to_db()
@@ -124,8 +122,8 @@ def user_sign_in(username, pw):
         else:
             money = user_row[0]
             return money
-        
-    # Close connection in the case of an exception
+    
+    # Ensure connection is always closed
     finally:
         cur.close()
         conn.close()
@@ -137,7 +135,8 @@ def insert_new_user_field(username, password):
     This method is used right after account creation in order to initialize a field for the user as well as initialize the planted crops within the field.
 
     Args:
-        User: The User object that represents the current user
+        username (str): The username of the current user
+        password (str): The password of the current user
 
     """
     conn = connect_to_db()
@@ -167,7 +166,8 @@ def plant_crop_db(username, password, crop_name):
     Increments the fields table's num_planted and inserts a row to the crops_planted table
 
     Args:
-        user_obj (User): Represents the current user
+        username (str): The username of the current user
+        password (str): The password of the current user
         crop_name (str): The name of the crop to be planted
 
     """
@@ -189,8 +189,7 @@ def plant_crop_db(username, password, crop_name):
                 SET num_planted = num_planted + %s WHERE user_id = %s
                 RETURNING field_id;""", (1, user_id))
     
-    result = cur.fetchone()
-    field_id = result[0] if result else None
+    field_id = cur.fetchone()[0]
     
     # Add row to planted_crops table
     cur.execute("""
@@ -199,8 +198,6 @@ def plant_crop_db(username, password, crop_name):
         VALUES 
             (%s, %s, %s);
     """, (field_id, crop_name, total_growth_time))
-    
-
 
     conn.commit()
     cur.close()
@@ -211,7 +208,8 @@ def load_user_field(username, password):
     Query the database to get the field corresponding to the user
 
     Args:
-        user_obj (User): Represents the current user
+        username (str): The username of the current user
+        password (str): The password of the current user
     
     Returns:
         Field: The field object that corresponds to the current user
@@ -233,9 +231,56 @@ def load_user_field(username, password):
     moisture_percent = field_row[3]
     fertilizer_percent = field_row[4]
 
-
     cur.close()
     conn.close()
 
-    # Return the data needed to construct the user's field
+    # Return the data needed to construct the user's field as a tuple
     return num_planted, moisture_percent, fertilizer_percent
+
+
+def harvest_crop_db(username, password, crop_name):
+    """
+    Allows the user to harvest a crop by updating the DB
+
+    Decrements the fields table's num_planted and deletes the corresponding row in the crops_planted table
+
+    Args:
+        username  (str): Current user's username
+        password  (str): Current user's password
+        crop_name (str): The name of the crop to be planted
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    # Get user_id
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
+    user_row = cur.fetchone()
+    user_id = user_row[0]   
+
+    # Increment num_planted in the player's field and get field_id
+    cur.execute("""UPDATE fields 
+                SET num_planted = num_planted - %s WHERE user_id = %s
+                RETURNING field_id;""", (1, user_id))
+    
+    field_id = cur.fetchone()[0]
+    
+    # Delete corresponding planted_crops table
+    cur.execute("""
+        DELETE FROM planted_crops
+        WHERE ctid IN (
+            SELECT ctid
+            FROM planted_crops
+            WHERE field_id = %s
+            AND crop_type = %s
+            LIMIT 1
+        );
+    """, (field_id, crop_name))
+
+    ###
+    ### IN THE FUTURE THIS METHOD MUST UTILIZE THE USER INVENTORY DATABSE
+    ###
+
+    conn.commit()
+    cur.close()
+    conn.close() 
