@@ -50,18 +50,32 @@ def create_tables():
                 ON CONFLICT DO NOTHING;
     """)
 
+    # Initialize the item definition table to default values
+    cur.execute("""
+        INSERT INTO items 
+        (item_id, item_name, rarity, buy_price) 
+        VALUES 
+                (1, 'Potato Seed', 'Common', 50),
+                (2, 'Leek Seed', 'Common', 20),
+                (3, 'Corn Seed', 'Uncommon', 20),
+                (4, 'Celery Seed', 'Uncommon', 20),
+                (5, 'Beans Seed', 'Uncommon', 20),
+                (6, 'Brussel Sprout', 'Rare', 20)
+                ON CONFLICT DO NOTHING;
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
 
-def insert_user_to_db(user_obj):
+def insert_user_to_db(username, password, money):
     """
     Inserts a user into the user table of the database
 
     Args:
         user_obj (User): The user object to be inserted
 
-    Raises:
+    Raises:s
         UniqueViolation: If the username is already taken
     
     Returns:
@@ -79,7 +93,7 @@ def insert_user_to_db(user_obj):
             INSERT INTO users (username, password, money)
             VALUES (%s, %s, %s)
             """,
-            (user_obj.username, user_obj.password, user_obj.money)
+            (username, password, money)
         )
         conn.commit()
         print("User sucessfully inserted to DB")
@@ -284,3 +298,30 @@ def harvest_crop_db(username, password, crop_name):
     conn.commit()
     cur.close()
     conn.close() 
+
+def load_inventory_db(username, password):
+    """
+    Query the database for all items the current user owns
+
+    Args:
+        user_id (int): Represents the user's unique ID
+
+    Returns:
+        rows (list[tuple]): Represents the owned items and the quantity of each item
+
+    """
+
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("""SELECT user_inventories.item_id, items.item_name, items.rarity, items.buy_price, user_inventories.quantity
+                FROM user_inventories JOIN items ON items.item_id = user_inventories.item_id
+                WHERE user_inventories.username = %s AND user_inventories.password = %s
+            """, (username, password))
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close() 
+
+    return rows

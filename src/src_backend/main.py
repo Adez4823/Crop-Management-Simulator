@@ -3,6 +3,7 @@ from user import User
 from field_class import *
 from crop import *
 from database import *
+from user_inventory import *
 
 from dotenv import load_dotenv
 load_dotenv("../../.env")
@@ -115,7 +116,9 @@ def handle_login_choice(choice_int):
         
         # Users must enter valid login credentials
         if (money >= 0):
-            curr_user = User(username, password, money)
+            user_inventory = UserInventory(username, password)
+            user_inventory.load_inventory()
+            curr_user = User(username, password, money, user_inventory)
             num_planted, moisture_percent, fertilizer_percent  = load_user_field(curr_user.username, curr_user.password)
             test_field = Field(num_planted, moisture_percent, fertilizer_percent)
             return curr_user
@@ -126,10 +129,12 @@ def handle_login_choice(choice_int):
     # 2 = create account
     elif choice_int == 2:
         login_list = get_login_info() # get [username, pw]
-        curr_user = User(login_list[0], login_list[1])
-        insertion_successfull = insert_user_to_db(curr_user.username, curr_user.password)
+        user_inventory = UserInventory(login_list[0], login_list[1])
+        user_inventory.load_inventory()
+        curr_user = User(login_list[0], login_list[1], 100, user_inventory)
+        insertion_successful = insert_user_to_db(curr_user.username, curr_user.password, curr_user.money)
         
-        if insertion_successfull:
+        if insertion_successful:
             insert_new_user_field(curr_user.username, curr_user.password)
             return curr_user
         else:

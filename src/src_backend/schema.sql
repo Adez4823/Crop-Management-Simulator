@@ -40,11 +40,23 @@ CREATE TABLE IF NOT EXISTS crop_types (
     PRIMARY KEY(crop_type_id)
 );
 
+-- Item definition table
+CREATE TABLE IF NOT EXISTS items (
+    item_id INT NOT NULL, 
+    item_name VARCHAR(32) NOT NULL UNIQUE, 
+    rarity VARCHAR(32) NOT NULL, 
+    buy_price INT NOT NULL, 
+    PRIMARY KEY(item_id)
+);
+
 -- User inventory table
-CREATE TABLE IF NOT EXISTS user_inventory (
-    user_id INT NOT NULL,
-    inv_item_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    item_name VARCHAR(255) NOT NULL,
-    total_items INT NOT NULL,
-    FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS user_inventories (
+    username VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    item_id INT NOT NULL, 
+    quantity INT NOT NULL,
+
+    -- Ensure that items will stack
+    PRIMARY KEY(username, item_id),
+    FOREIGN KEY (item_id) REFERENCES items(item_id) ON DELETE CASCADE
 );
