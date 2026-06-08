@@ -325,3 +325,105 @@ def load_inventory_db(username, password):
     conn.close() 
 
     return rows
+
+def get_item_id(item_name):
+    """
+    Get the item's id
+
+    Args:
+        item_name (str): Name of the item
+
+    Returns:
+        item_id   (int): The number corresponding to the item 
+
+    Raises:
+        ValueError: If the item doesn't exist within the item definition table
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT item_id FROM items WHERE item_name = %s;", (item_name,))
+    item_row = cur.fetchone()
+
+    if not item_row:
+        cur.close()
+        conn.close()
+        raise ValueError(f"Item '{item_name}' not found in items table.")
+    
+    else:
+        item_id = item_row[0]
+
+    cur.close()
+    conn.close()
+
+    return item_id
+
+def get_item_definition(item_name):
+    """
+    Get the item's price
+
+    Args:
+        item_name (str): Name of the item
+
+    Returns:
+        item_row  (tuple): The tuple representing the item
+
+    Raises:
+        ValueError: If the item doesn't exist within the item definition table
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM items WHERE item_name = %s",  (item_name,))
+    item_row = cur.fetchone()
+
+    if not item_row:
+        cur.close()
+        conn.close()
+        raise ValueError(f"Item '{item_name}' not found in items table.")
+    
+
+    cur.close()
+    conn.close()
+
+    return item_row
+
+def add_item_inventory_db(username, password, item_name):
+    """
+    Allows the user to buy items
+
+    Adds an item to the user's inventory in the database
+
+    Args:
+        username (str): The username of the current user
+        password (str): The password of the current user
+        item_name (str): The name of the item that is to be added to the user's inventory
+
+    Raises:
+        ValueError: If the item_name doesn't match an item in the item definitions table (can't happen at this moment, but added for flexibility/redundancy)
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    item_id = get_item_id(item_name)
+
+    cur.execute("SELECT * FROM user_inventories WHERE username = %s AND password = %s AND item_id = %s", (username, password, item_id))
+
+    if cur.fetchone():
+        # Increment item in the player's inventory if they already have it
+        cur.execute("""UPDATE user_inventories 
+                    SET quantity = quantity + %s WHERE item_id = %s AND username = %s AND password = %s;
+                    """, (1, item_id, username, password))
+    else:
+        # The player doesn't have this item, insert a new row
+        cur.execute("""INSERT INTO user_inventories
+                        (username, password, item_id, quantity) 
+                        VALUES 
+                            (%s, %s, %s, %s);
+                    """, (username, password, item_id, 1))
+
+    conn.commit()
+    cur.close()
+    conn.close()

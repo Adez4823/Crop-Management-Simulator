@@ -70,6 +70,8 @@ def handle_choice(choice):
         test_field.plant_crop(curr_user, "Potato")
     elif choice_int == 4:
         test_field.harvest_crop(curr_user, "Potato")
+    elif choice_int == 111:
+        curr_user.inventory.add_item(curr_user, 'Potato Seed')
     else: # Users must enter a valid choice
         print("Please enter one of the numerical choices")
     print("") # Extra newline for space
