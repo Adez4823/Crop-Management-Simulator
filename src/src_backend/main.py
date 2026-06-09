@@ -45,11 +45,45 @@ def display_interface(current_user):
     print("2. Fertilize your field")
     print("3. Plant a crop")
     print("4. Harvest a crop")
+    print("5. Visit the shop")
     print("0. Exit")
+
+def display_shop():
+    """
+    Display the shop and get user input
+
+    """
+    global curr_user
+
+    shopping = True
+    counter = 1
+    print("==== FARMERS MARKET ====")
+    print("Shopkeeper: This is the current selection of items")
+    rows = select_random_items(3)
+    while shopping:
+        counter = 1
+        for row in rows:
+            print(f"{counter}: {row[1]} (Rarity: {row[2]})")
+            counter += 1
+        
+        print("0: Exit shop")
+        shop_choice = int(input("Which item would you like to buy (number): "))
+
+        if shop_choice == 0:
+            print("Exiting shop")
+            shopping = False
+            break
+        elif shop_choice > 0 and shop_choice <= 3:
+            item_to_buy = rows[shop_choice - 1]
+            print(f"You bought a {item_to_buy[1]}")
+            curr_user.inventory.add_item(curr_user, item_to_buy[1])
+        else:
+            print("Enter a valid choice!")
+
 
 def handle_choice(choice):
     """
-    Perform actions according to the user's choice
+    Perform actions according to the user's choice in the main interface
 
     Args:
         choice (str): The user's choice as a string
@@ -70,6 +104,8 @@ def handle_choice(choice):
         test_field.plant_crop(curr_user, "Potato")
     elif choice_int == 4:
         test_field.harvest_crop(curr_user, "Potato")
+    elif choice_int == 5:
+        shop_choice = display_shop()
     elif choice_int == 111:
         curr_user.inventory.add_item(curr_user, 'Potato Seed')
     else: # Users must enter a valid choice
@@ -196,6 +232,7 @@ def main():
         print("Enter your choice: ", end="") # Get user input
         choice = input().strip()
         handle_choice(choice)
+    
 
         
 

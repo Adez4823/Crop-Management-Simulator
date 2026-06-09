@@ -427,3 +427,28 @@ def add_item_inventory_db(username, password, item_name):
     conn.commit()
     cur.close()
     conn.close()
+
+def select_random_items(num_items):
+    """
+    Select x random rows from the items table
+
+    Args:
+        num_items (int): number of items to select
+
+    Returns:
+        List[tuple]: a list of tuples representing each item
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM items ORDER BY RANDOM() LIMIT %s;", (num_items,))
+    rows = cur.fetchall()
+
+    if not rows:
+        print("No items exist! (DB error)")
+
+    cur.close()
+    conn.close()
+
+    return rows
