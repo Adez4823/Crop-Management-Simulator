@@ -67,16 +67,32 @@ def display_shop():
             counter += 1
         
         print("0: Exit shop")
-        shop_choice = int(input("Which item would you like to buy (number): "))
 
+        # Users must enter a numeric value
+        try:
+            shop_choice = int(input("Which item would you like to buy (number): "))
+        except ValueError:
+            print("Enter a valid choice!")
+            continue
+        
+        # Users can exit the shot by entering 0
         if shop_choice == 0:
             print("Exiting shop")
             shopping = False
             break
+        # Users must enter a valid choice
         elif shop_choice > 0 and shop_choice <= 3:
             item_to_buy = rows[shop_choice - 1]
+            item_price = item_to_buy[3]
+            # Users aren't able to buy an item they can't afford
+            if curr_user.money < item_price:
+                print("You don't have enough money to buy this item")
+                continue
+
             print(f"You bought a {item_to_buy[1]}")
+            subtract_user_money_db(item_price, curr_user.username, curr_user.password)
             curr_user.inventory.add_item(curr_user, item_to_buy[1])
+            curr_user.money -= item_price
         else:
             print("Enter a valid choice!")
 

@@ -452,3 +452,22 @@ def select_random_items(num_items):
     conn.close()
 
     return rows
+
+def subtract_user_money_db(amount, username, password):
+    """
+    Subtracts an amount of money from the user's row in the database
+
+    Args:
+        amount   (int): The value to subtract
+        username (str): The string representing the current user's name
+        password (str): The string representing the current user's passwor
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("UPDATE users SET money = money - %s WHERE username = %s AND password = %s;", 
+                (amount, username, password))
+
+    conn.commit()
+    cur.close()
+    conn.close()
