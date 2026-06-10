@@ -16,12 +16,14 @@ class Field:
         self.moisture_percent = moisture_percent
         self.fertilizer_percent = fertilizer_percent
 
-    def water_field(self):
+    def water_field(self, user_obj):
         """
         Add water to the field.
 
         Adds 10 to the field's moisture, given the field is not fully watered.
         """
+
+        from database import water_field_db
 
         # Users can only water their field if it is not fully watered.
         if self.moisture_percent >= 100:
@@ -29,13 +31,15 @@ class Field:
         else:
             self.moisture_percent += 10
             print(f"You watered your field, its moisture content is now {self.moisture_percent}")
+            water_field_db(user_obj.username, user_obj.password)
 
-    def fertilize_field(self):
+    def fertilize_field(self, user_obj):
         """
         Add fertilizer to the field.
 
         Adds 20 to the field's fertilizer percentage given the field is less than 80% fertilized.
         """
+        from database import fertilize_field_db
 
         # Users can only fertilize their field it is 80% fertilized or less
         if self.fertilizer_percent > 80:
@@ -43,6 +47,8 @@ class Field:
         else:
             self.fertilizer_percent += 20
             print(f"You added fertilzer to your field, its fertilizer percentage is now {self.fertilizer_percent}")
+            fertilize_field_db(user_obj.username, user_obj.password)
+
     
     def plant_crop(self, user_obj, plant_type):
         """

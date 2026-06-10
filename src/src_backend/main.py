@@ -113,9 +113,9 @@ def handle_choice(choice):
         global running
         running = False
     elif choice_int == 1:
-        test_field.water_field()
+        test_field.water_field(curr_user)
     elif choice_int == 2:
-        test_field.fertilize_field()
+        test_field.fertilize_field(curr_user)
     elif choice_int == 3:
         test_field.plant_crop(curr_user, "Potato")
     elif choice_int == 4:

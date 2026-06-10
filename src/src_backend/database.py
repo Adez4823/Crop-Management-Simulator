@@ -471,3 +471,58 @@ def subtract_user_money_db(amount, username, password):
     conn.commit()
     cur.close()
     conn.close()
+
+def get_user_id(username, password):
+    """
+    Obtain the user's id in the db
+
+    Args:
+        username (str): The username of the current user
+        password (str): The password of the current user
+    
+    Returns:
+        int: Represents the user id
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
+    id = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+
+    return id
+
+
+def water_field_db(username, password):
+    """
+    Water the user's field by updating their moisture percentage
+    
+    """
+    user_id = get_user_id(username, password)
+
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("UPDATE fields SET moisture_percent = moisture_percent + 10 WHERE user_id = %s", (user_id,))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def fertilize_field_db(username, password):
+    """
+    Fertilize the user's field by updating their fertilizer percentage
+    
+    """
+    user_id = get_user_id(username, password)
+
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("UPDATE fields SET fertilizer_percent = fertilizer_percent + 20 WHERE user_id = %s", (user_id,))
+
+    conn.commit()
+    cur.close()
+    conn.close()
