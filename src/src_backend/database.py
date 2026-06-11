@@ -1,5 +1,6 @@
 import psycopg
 import os
+from psycopg.rows import dict_row
 
 def connect_to_db():
     """
@@ -526,3 +527,53 @@ def fertilize_field_db(username, password):
     conn.commit()
     cur.close()
     conn.close()
+
+def get_field_id(username, password):
+    """
+    Obtain the user's field id
+
+    Args:
+        username (str): The username of the current user
+        password (str): The password of the current user
+    
+    Returns:
+        int: representing the user's field id
+
+    """
+    user_id = get_user_id(username, password)
+
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT field_id FROM fields WHERE user_id = %s;", (user_id,))
+
+    field_id = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+
+    return field_id
+
+def get_crop_times(username, password):
+
+    field_id = get_field_id(username, password)
+    
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    cur.execute("""SELECT
+                planted_crop_id,
+                crop_type,
+                total_growth_time_seconds,
+                EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - date_planted)) AS seconds_after_planting
+                FROM planted_crops WHERE field_id = %s;
+                """, (field_id,))
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+

@@ -46,6 +46,7 @@ def display_interface(current_user):
     print("3. Plant a crop")
     print("4. Harvest a crop")
     print("5. Visit the shop")
+    print("6. Visit your field")
     print("0. Exit")
 
 def display_shop():
@@ -61,9 +62,10 @@ def display_shop():
     print("Shopkeeper: This is the current selection of items")
     rows = select_random_items(3)
     while shopping:
+        print(f"You currently have ${curr_user.money}")
         counter = 1
         for row in rows:
-            print(f"{counter}: {row[1]} (Rarity: {row[2]})")
+            print(f"{counter}: {row[1]} ${row[3]} (Rarity: {row[2]})")
             counter += 1
         
         print("0: Exit shop")
@@ -96,6 +98,28 @@ def display_shop():
         else:
             print("Enter a valid choice!")
 
+def visit_field(user_obj):
+    """
+    Allows the user to visit their field
+
+    This method will show the user what is planted, what is fully grown, and the field's conditions
+
+    Args:
+        user_obj (User): The object representing the current user
+
+    """
+
+    planted_crops = get_crop_times(user_obj.username, user_obj.password)
+
+    for crop in planted_crops:
+        seconds_after_planting = int(crop['seconds_after_planting'])
+        total_growth_time = int(crop['total_growth_time_seconds'])
+        if seconds_after_planting >= total_growth_time:
+            print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is ready to harvest!")
+        else:
+            time_remaining_seconds = total_growth_time - seconds_after_planting
+            print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is still growing!")
+            print(f"time remaining (seconds): {time_remaining_seconds}")
 
 def handle_choice(choice):
     """
@@ -121,9 +145,9 @@ def handle_choice(choice):
     elif choice_int == 4:
         test_field.harvest_crop(curr_user, "Potato")
     elif choice_int == 5:
-        shop_choice = display_shop()
-    elif choice_int == 111:
-        curr_user.inventory.add_item(curr_user, 'Potato Seed')
+        display_shop()
+    elif choice_int == 6:
+        visit_field(curr_user)
     else: # Users must enter a valid choice
         print("Please enter one of the numerical choices")
     print("") # Extra newline for space
@@ -247,10 +271,7 @@ def main():
 
         print("Enter your choice: ", end="") # Get user input
         choice = input().strip()
-        handle_choice(choice)
-    
-
-        
+        handle_choice(choice)    
 
 
 if __name__ == "__main__":
