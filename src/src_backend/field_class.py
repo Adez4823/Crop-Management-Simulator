@@ -69,7 +69,7 @@ class Field:
             plant_crop_db(user_obj.username, user_obj.password, plant_type)
             print(f"You planted a {plant_type} crop in your field! There are now {self.num_plants} in your field.")
 
-    def harvest_crop(self, user_obj, plant_type):
+    def harvest_crop(self, user_obj, planted_crop_id):
         """
         Harvest a fully grown crop
 
@@ -77,7 +77,7 @@ class Field:
         Currently, it just decrements the number of plants in the field if it isn't empty.
 
         Args:
-            plant_type (str): The name of the crop to be harvested
+            planted_crop_id (int): The id of the crop to be harvested
         """
         from database import harvest_crop_db
 
@@ -86,5 +86,5 @@ class Field:
             print("There are no plants to harvest!")
         else:
             self.num_plants = self.num_plants - 1
-            harvest_crop_db(user_obj.username, user_obj.password, plant_type)
-            print(f"You harvested a {plant_type} crop, there are now {self.num_plants} in your field.")
+            harvest_crop_db(user_obj.username, user_obj.password, planted_crop_id)
+

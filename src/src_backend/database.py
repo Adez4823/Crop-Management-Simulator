@@ -61,7 +61,13 @@ def create_tables():
                 (3, 'Corn Seed', 'Uncommon', 20),
                 (4, 'Celery Seed', 'Uncommon', 20),
                 (5, 'Beans Seed', 'Uncommon', 20),
-                (6, 'Brussel Sprout', 'Rare', 20)
+                (6, 'Brussel Sprout Seed', 'Rare', 20),
+                (7, 'Potato', 'Common', 50),
+                (8, 'Leek', 'Common', 20),
+                (9, 'Corn', 'Uncommon', 20),
+                (10, 'Celery', 'Uncommon', 20),
+                (11, 'Beans', 'Uncommon', 20),
+                (12, 'Brussel Sprouts', 'Rare', 20)
                 ON CONFLICT DO NOTHING;
     """)
 
@@ -252,54 +258,6 @@ def load_user_field(username, password):
     # Return the data needed to construct the user's field as a tuple
     return num_planted, moisture_percent, fertilizer_percent
 
-
-def harvest_crop_db(username, password, crop_name):
-    """
-    Allows the user to harvest a crop by updating the DB
-
-    Decrements the fields table's num_planted and deletes the corresponding row in the crops_planted table
-
-    Args:
-        username  (str): Current user's username
-        password  (str): Current user's password
-        crop_name (str): The name of the crop to be planted
-
-    """
-    conn = connect_to_db()
-    cur = conn.cursor()
-
-    # Get user_id
-    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
-    user_row = cur.fetchone()
-    user_id = user_row[0]   
-
-    # Increment num_planted in the player's field and get field_id
-    cur.execute("""UPDATE fields 
-                SET num_planted = num_planted - %s WHERE user_id = %s
-                RETURNING field_id;""", (1, user_id))
-    
-    field_id = cur.fetchone()[0]
-    
-    # Delete corresponding planted_crops table
-    cur.execute("""
-        DELETE FROM planted_crops
-        WHERE ctid IN (
-            SELECT ctid
-            FROM planted_crops
-            WHERE field_id = %s
-            AND crop_type = %s
-            LIMIT 1
-        );
-    """, (field_id, crop_name))
-
-    ###
-    ### IN THE FUTURE THIS METHOD MUST UTILIZE THE USER INVENTORY DATABSE
-    ###
-
-    conn.commit()
-    cur.close()
-    conn.close() 
-
 def load_inventory_db(username, password):
     """
     Query the database for all items the current user owns
@@ -428,6 +386,52 @@ def add_item_inventory_db(username, password, item_name):
     conn.commit()
     cur.close()
     conn.close()
+
+def harvest_crop_db(username, password, planted_crop_id):
+    """
+    Allows the user to harvest a crop by updating the DB
+
+    Decrements the fields table's num_planted and deletes the corresponding row in the crops_planted table
+
+    Args:
+        username        (str): Current user's username
+        password        (str): Current user's password
+        planted_crop_id (int): The id of the crop to be planted
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    # Get user_id
+    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
+    user_row = cur.fetchone()
+    user_id = user_row[0]   
+
+    # Decrement num_planted in the player's field and get field_id
+    cur.execute("""UPDATE fields 
+                SET num_planted = num_planted - %s WHERE user_id = %s
+                RETURNING field_id;""", (1, user_id))
+    
+    field_id = cur.fetchone()[0]
+    
+    # Delete corresponding planted_crops table
+    cur.execute("""
+        DELETE FROM planted_crops
+        WHERE ctid IN (
+            SELECT ctid
+            FROM planted_crops
+            WHERE field_id = %s
+            AND planted_crop_id = %s
+        );
+    """, (field_id, planted_crop_id))
+
+
+    # add seed and grown crop item
+    
+
+    conn.commit()
+    cur.close()
+    conn.close() 
 
 def select_random_items(num_items):
     """
@@ -576,4 +580,46 @@ def get_crop_times(username, password):
 
     return rows
 
+def get_field_moisture_fertilizer(username, password):
+    """
+    Obtain the moisture and fertilizer conditions of the current user
+
+    Args:
+        username (str): The username of the current user
+        password (str): The password of the current user
+
+    Returns:
+        tuple: The tuple (moisture, fertilizer,) representing the user's field
+    """
+    
+    user_id = get_user_id(username, password)
+    
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    cur.execute("SELECT moisture_percent, fertilizer_percent FROM fields WHERE user_id = %s;", (user_id,))
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return row
+
+def get_planted_crop(crop_id):
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    cur.execute("""SELECT crop_type, total_growth_time_seconds, 
+                EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - date_planted)) AS seconds_after_planting
+                FROM planted_crops
+                WHERE planted_crop_id = %s;
+                """, (crop_id,))
+    
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return row
 

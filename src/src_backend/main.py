@@ -98,6 +98,19 @@ def display_shop():
         else:
             print("Enter a valid choice!")
 
+def is_harvestable(crop_id):
+    
+    crop = get_planted_crop(crop_id)
+    if not crop:
+        print("Enter a valid crop ID!")
+        return
+    
+    seconds_after_planting = int(crop['seconds_after_planting'])
+    total_growth_time = int(crop['total_growth_time_seconds'])
+    if seconds_after_planting >= total_growth_time:
+        return True
+    return False
+
 def visit_field(user_obj):
     """
     Allows the user to visit their field
@@ -110,7 +123,14 @@ def visit_field(user_obj):
     """
 
     planted_crops = get_crop_times(user_obj.username, user_obj.password)
+    field_row = get_field_moisture_fertilizer(user_obj.username, user_obj.password)
 
+    if not field_row:
+        print("Your field is empty, plant some crops!")
+        return
+
+    print("Your field: ")
+    print(f"Moisture percent: {field_row['moisture_percent']}  Fertilizer percent: {field_row['fertilizer_percent']}")
     for crop in planted_crops:
         seconds_after_planting = int(crop['seconds_after_planting'])
         total_growth_time = int(crop['total_growth_time_seconds'])
@@ -120,6 +140,38 @@ def visit_field(user_obj):
             time_remaining_seconds = total_growth_time - seconds_after_planting
             print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is still growing!")
             print(f"time remaining (seconds): {time_remaining_seconds}")
+
+def harvest_crop_interface():
+    """
+    Display harvest interface and obtain user input for harvesting
+    
+    """
+
+    global test_field
+    global curr_user
+
+    harvesting = True
+    while harvesting:
+        print("Enter 0 to exit.")
+        try:
+            user_input = int(input("Enter a crop's ID to harvest it!"))
+        except ValueError:
+            print("Enter a valid ID/choice!")
+            continue
+        
+        if user_input == 0:
+            print("Exiting the harvest interface")
+            harvesting = False
+            return
+        
+        if is_harvestable(user_input):
+            crop = get_planted_crop(user_input)
+            test_field.harvest_crop(curr_user, user_input)
+
+            seed_name = crop['crop_type'] + " Seed"
+            curr_user.inventory.add_item(curr_user, crop['crop_type'])
+            curr_user.inventory.add_item(curr_user, seed_name)
+
 
 def handle_choice(choice):
     """
@@ -143,7 +195,8 @@ def handle_choice(choice):
     elif choice_int == 3:
         test_field.plant_crop(curr_user, "Potato")
     elif choice_int == 4:
-        test_field.harvest_crop(curr_user, "Potato")
+        visit_field(curr_user)
+        harvest_crop_interface()
     elif choice_int == 5:
         display_shop()
     elif choice_int == 6:
