@@ -49,3 +49,14 @@ class UserInventory:
         new_item = Item(item_id, name, rarity, buy_price, 1)
 
         self.inventory_arr.append(new_item)
+    
+    def display_inventory(self):
+        self.inventory_arr = []
+        rows = load_inventory_db(self.username, self.password)
+
+        # Cannot load an empty inventory
+        if not rows:
+            print("Inventory currently empty")
+        else:
+            for _, item_name, rarity, _, quantity in rows:
+                print(f"{item_name}: {quantity} owned. ({rarity})")

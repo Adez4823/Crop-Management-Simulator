@@ -47,6 +47,7 @@ def display_interface(current_user):
     print("4. Harvest a crop")
     print("5. Visit the shop")
     print("6. Visit your field")
+    print("7. View your inventory")
     print("0. Exit")
 
 def display_shop():
@@ -141,6 +142,7 @@ def visit_field(user_obj):
             print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is still growing!")
             print(f"time remaining (seconds): {time_remaining_seconds}")
 
+
 def harvest_crop_interface():
     """
     Display harvest interface and obtain user input for harvesting
@@ -154,7 +156,7 @@ def harvest_crop_interface():
     while harvesting:
         print("Enter 0 to exit.")
         try:
-            user_input = int(input("Enter a crop's ID to harvest it!"))
+            user_input = int(input("Enter a crop's ID to harvest it: "))
         except ValueError:
             print("Enter a valid ID/choice!")
             continue
@@ -171,6 +173,8 @@ def harvest_crop_interface():
             seed_name = crop['crop_type'] + " Seed"
             curr_user.inventory.add_item(curr_user, crop['crop_type'])
             curr_user.inventory.add_item(curr_user, seed_name)
+        else:
+            print("This crop is not ready to be harvested yet!")
 
 
 def handle_choice(choice):
@@ -201,6 +205,8 @@ def handle_choice(choice):
         display_shop()
     elif choice_int == 6:
         visit_field(curr_user)
+    elif choice_int == 7:
+        curr_user.inventory.display_inventory()
     else: # Users must enter a valid choice
         print("Please enter one of the numerical choices")
     print("") # Extra newline for space
