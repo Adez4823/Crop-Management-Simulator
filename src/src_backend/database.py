@@ -1,6 +1,11 @@
 import psycopg
 import os
 from psycopg.rows import dict_row
+from datetime import datetime, timezone, timedelta
+
+# global variables
+moisture_decay_rate = 0.05
+fertilizer_decay_rate = 0.01
 
 def connect_to_db():
     """
@@ -192,8 +197,11 @@ def plant_crop_db(username, password, crop_name):
         crop_name (str): The name of the crop to be planted
 
     """
+    update_field_decay(username, password)
+
     conn = connect_to_db()
     cur = conn.cursor()
+
 
     # Get user_id
     cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
@@ -215,10 +223,10 @@ def plant_crop_db(username, password, crop_name):
     # Add row to planted_crops table
     cur.execute("""
         INSERT INTO planted_crops 
-        (field_id, crop_type, total_growth_time_seconds) 
+        (field_id, crop_type, total_time_grown, total_growth_time_seconds) 
         VALUES 
-            (%s, %s, %s);
-    """, (field_id, crop_name, total_growth_time))
+            (%s, %s, %s, %s);
+    """, (field_id, crop_name, 0, total_growth_time))
 
     conn.commit()
     cur.close()
@@ -402,6 +410,8 @@ def harvest_crop_db(username, password, planted_crop_id):
     conn = connect_to_db()
     cur = conn.cursor()
 
+    update_field_decay(username, password)
+
     # Get user_id
     cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
     user_row = cur.fetchone()
@@ -424,11 +434,7 @@ def harvest_crop_db(username, password, planted_crop_id):
             AND planted_crop_id = %s
         );
     """, (field_id, planted_crop_id))
-
-
-    # add seed and grown crop item
     
-
     conn.commit()
     cur.close()
     conn.close() 
@@ -505,6 +511,7 @@ def water_field_db(username, password):
     Water the user's field by updating their moisture percentage
     
     """
+    update_field_decay(username, password)
     user_id = get_user_id(username, password)
 
     conn = connect_to_db()
@@ -521,6 +528,7 @@ def fertilize_field_db(username, password):
     Fertilize the user's field by updating their fertilizer percentage
     
     """
+    update_field_decay(username, password)
     user_id = get_user_id(username, password)
 
     conn = connect_to_db()
@@ -568,8 +576,9 @@ def get_crop_times(username, password):
     cur.execute("""SELECT
                 planted_crop_id,
                 crop_type,
-                total_growth_time_seconds,
-                EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - date_planted)) AS seconds_after_planting
+                total_time_grown,
+                date_planted,
+                total_growth_time_seconds
                 FROM planted_crops WHERE field_id = %s;
                 """, (field_id,))
 
@@ -579,6 +588,73 @@ def get_crop_times(username, password):
     conn.close()
 
     return rows
+
+def update_field_decay(username, password):
+    """
+    Obtain the moisture and fertilizer conditions of the current user
+
+    Args:
+        username (str): The username of the current user
+        password (str): The password of the current user
+    """
+    global moisture_decay_rate
+    global fertilizer_decay_rate
+    user_id = get_user_id(username, password)
+    field_id = get_field_id(username, password) 
+
+    field_row = get_field_moisture_fertilizer(username, password)
+
+    moisture_percent = field_row['moisture_percent']
+    fertilizer_percent = field_row['fertilizer_percent']
+
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    cur.execute("SELECT last_updated, date_until_no_growth FROM fields WHERE user_id = %s;", (user_id,))
+    row = cur.fetchone()
+    last_updated = row['last_updated']
+    date_until_no_growth = row['date_until_no_growth']
+
+    now = datetime.now(timezone.utc)
+
+    seconds_since_last_update = (now - last_updated).total_seconds()
+
+    growth_end_date = min(now, date_until_no_growth)
+    effective_growth_seconds = max(0, (growth_end_date - last_updated).total_seconds())
+
+    cur.execute("""UPDATE planted_crops
+                    SET total_time_grown = total_time_grown + %s
+                    WHERE field_id = %s;
+                """, (effective_growth_seconds, field_id))
+
+    moisture_decay = seconds_since_last_update * moisture_decay_rate
+    fertilizer_decay = seconds_since_last_update * fertilizer_decay_rate
+
+    moisture_after_decay = max(0.00, moisture_percent - moisture_decay)
+    fertilizer_after_decay = max(0.00, fertilizer_percent - fertilizer_decay)
+
+
+    if moisture_after_decay <= 0 or fertilizer_after_decay <= 0:
+        date_until_no_growth = now
+    else:
+        time_until_dry = moisture_after_decay / moisture_decay_rate
+        time_until_no_fertilizer = fertilizer_after_decay / fertilizer_decay_rate
+        seconds_until_no_growth = min(time_until_dry, time_until_no_fertilizer)
+
+        date_until_no_growth = now + timedelta(seconds=seconds_until_no_growth)
+
+    # Update last_updated timestamp and moisture/fertilizer values in db
+    cur.execute("""UPDATE fields
+                SET moisture_percent = %s,
+                fertilizer_percent = %s,
+                last_updated = CURRENT_TIMESTAMP,
+                date_until_no_growth = %s
+                WHERE user_id = %s;""", (moisture_after_decay, fertilizer_after_decay, date_until_no_growth, user_id))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+
 
 def get_field_moisture_fertilizer(username, password):
     """
@@ -593,7 +669,7 @@ def get_field_moisture_fertilizer(username, password):
     """
     
     user_id = get_user_id(username, password)
-    
+
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
 
@@ -623,3 +699,17 @@ def get_planted_crop(crop_id):
 
     return row
 
+def get_last_updated(username, password):
+
+    user_id = get_user_id(username, password)
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    cur.execute("SELECT last_updated FROM fields WHERE user_id = %s;", (user_id,))
+
+    last_updated = cur.fetchone()['last_updated']
+
+    cur.close()
+    conn.close()
+
+    return last_updated

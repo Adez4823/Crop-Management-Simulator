@@ -14,8 +14,10 @@ CREATE TABLE IF NOT EXISTS fields (
     field_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
     user_id INT NOT NULL, 
     num_planted INT NOT NULL, 
-    moisture_percent INT NOT NULL, 
-    fertilizer_percent INT NOT NULL, 
+    moisture_percent FLOAT NOT NULL, 
+    fertilizer_percent FLOAT NOT NULL, 
+    last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    date_until_no_growth TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
@@ -24,7 +26,8 @@ CREATE TABLE IF NOT EXISTS planted_crops (
     planted_crop_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
     field_id INT NOT NULL, 
     crop_type VARCHAR(32) NOT NULL, 
-    date_planted TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+    date_planted TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+    total_time_grown INT NOT NULL,
     total_growth_time_seconds INT, 
     FOREIGN KEY(field_id) REFERENCES fields(field_id) ON DELETE CASCADE
 );

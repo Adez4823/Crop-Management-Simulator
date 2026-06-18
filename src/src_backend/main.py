@@ -122,25 +122,48 @@ def visit_field(user_obj):
         user_obj (User): The object representing the current user
 
     """
+    global moisture_decay_rate
+    global fertilizer_decay_rate
 
     planted_crops = get_crop_times(user_obj.username, user_obj.password)
     field_row = get_field_moisture_fertilizer(user_obj.username, user_obj.password)
+    last_updated = get_last_updated(user_obj.username, user_obj.password)
 
     if not field_row:
         print("Your field is empty, plant some crops!")
         return
 
+    moisture_percent = field_row['moisture_percent']
+    fertilizer_percent = field_row['fertilizer_percent']
+
+    now = datetime.now(timezone.utc)
+    elapsed_seconds = (now - last_updated).total_seconds()
+
+    moisture_now = max(0, moisture_percent - (elapsed_seconds * moisture_decay_rate))
+    fertilizer_now = max(0, fertilizer_percent - (elapsed_seconds * fertilizer_decay_rate))
+
     print("Your field: ")
-    print(f"Moisture percent: {field_row['moisture_percent']}  Fertilizer percent: {field_row['fertilizer_percent']}")
+    print(f"Moisture percent: {int(moisture_now)}  Fertilizer percent: {int(fertilizer_now)}")
+
+    time_until_dry = moisture_percent / moisture_decay_rate
+    time_until_unfertilized = fertilizer_percent / fertilizer_decay_rate
+    field_death_time = last_updated + timedelta(seconds=min(time_until_dry, time_until_unfertilized))
+
+    now = datetime.now(timezone.utc)
+    effective_end_time = min(now, field_death_time)
+
     for crop in planted_crops:
-        seconds_after_planting = int(crop['seconds_after_planting'])
+        date_planted = crop['date_planted']
         total_growth_time = int(crop['total_growth_time_seconds'])
-        if seconds_after_planting >= total_growth_time:
+
+        effective_growing_time = max(0, (effective_end_time - date_planted).total_seconds())
+
+        if effective_growing_time >= total_growth_time:
             print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is ready to harvest!")
         else:
-            time_remaining_seconds = total_growth_time - seconds_after_planting
+            time_remaining_seconds = total_growth_time - effective_growing_time
             print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is still growing!")
-            print(f"time remaining (seconds): {time_remaining_seconds}")
+            print(f"time remaining (seconds): {int(time_remaining_seconds)}")
 
 
 def harvest_crop_interface():
@@ -335,4 +358,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
