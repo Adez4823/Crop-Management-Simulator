@@ -23,8 +23,13 @@ class Field:
         Adds 10 to the field's moisture, given the field is not fully watered.
         """
 
-        from database import water_field_db
+        from database import water_field_db, update_field_decay
 
+
+        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.username, user_obj.password, persist=False)
+
+        self.moisture_percent = moisture_after_decay
+        self.fertilizer_percent = fertilizer_after_decay
         # Users can only water their field if it is not fully watered.
         if self.moisture_percent >= 100:
             print("Your field is already completely watered")
@@ -39,9 +44,14 @@ class Field:
 
         Adds 20 to the field's fertilizer percentage given the field is less than 80% fertilized.
         """
-        from database import fertilize_field_db
+        from database import fertilize_field_db, update_field_decay
 
         # Users can only fertilize their field it is 80% fertilized or less
+        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.username, user_obj.password, persist=False)
+
+        self.moisture_percent = moisture_after_decay
+        self.fertilizer_percent = fertilizer_after_decay
+
         if self.fertilizer_percent > 80:
             print("You cannot fertilize right now (too much fertilizer)!")
         else:

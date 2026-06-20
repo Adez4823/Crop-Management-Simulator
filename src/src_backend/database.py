@@ -197,7 +197,7 @@ def plant_crop_db(username, password, crop_name):
         crop_name (str): The name of the crop to be planted
 
     """
-    update_field_decay(username, password)
+    update_field_decay(username, password, persist=True)
 
     conn = connect_to_db()
     cur = conn.cursor()
@@ -410,7 +410,7 @@ def harvest_crop_db(username, password, planted_crop_id):
     conn = connect_to_db()
     cur = conn.cursor()
 
-    update_field_decay(username, password)
+    update_field_decay(username, password, persist=True)
 
     # Get user_id
     cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
@@ -511,7 +511,7 @@ def water_field_db(username, password):
     Water the user's field by updating their moisture percentage
     
     """
-    update_field_decay(username, password)
+    update_field_decay(username, password, persist=True)
     user_id = get_user_id(username, password)
 
     conn = connect_to_db()
@@ -528,7 +528,7 @@ def fertilize_field_db(username, password):
     Fertilize the user's field by updating their fertilizer percentage
     
     """
-    update_field_decay(username, password)
+    update_field_decay(username, password, persist=True)
     user_id = get_user_id(username, password)
 
     conn = connect_to_db()
@@ -589,7 +589,7 @@ def get_crop_times(username, password):
 
     return rows
 
-def update_field_decay(username, password):
+def update_field_decay(username, password, persist=True):
     """
     Obtain the moisture and fertilizer conditions of the current user
 
@@ -619,6 +619,17 @@ def update_field_decay(username, password):
 
     seconds_since_last_update = (now - last_updated).total_seconds()
 
+    moisture_decay = seconds_since_last_update * moisture_decay_rate
+    fertilizer_decay = seconds_since_last_update * fertilizer_decay_rate
+
+    moisture_after_decay = max(0.00, moisture_percent - moisture_decay)
+    fertilizer_after_decay = max(0.00, fertilizer_percent - fertilizer_decay)
+
+    if not persist:
+        cur.close()
+        conn.close()
+        return moisture_after_decay, fertilizer_after_decay
+
     growth_end_date = min(now, date_until_no_growth)
     effective_growth_seconds = max(0, (growth_end_date - last_updated).total_seconds())
 
@@ -626,13 +637,6 @@ def update_field_decay(username, password):
                     SET total_time_grown = total_time_grown + %s
                     WHERE field_id = %s;
                 """, (effective_growth_seconds, field_id))
-
-    moisture_decay = seconds_since_last_update * moisture_decay_rate
-    fertilizer_decay = seconds_since_last_update * fertilizer_decay_rate
-
-    moisture_after_decay = max(0.00, moisture_percent - moisture_decay)
-    fertilizer_after_decay = max(0.00, fertilizer_percent - fertilizer_decay)
-
 
     if moisture_after_decay <= 0 or fertilizer_after_decay <= 0:
         date_until_no_growth = now
