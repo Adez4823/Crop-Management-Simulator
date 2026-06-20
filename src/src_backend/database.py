@@ -631,7 +631,9 @@ def update_field_decay(username, password, persist=True):
         return moisture_after_decay, fertilizer_after_decay
 
     growth_end_date = min(now, date_until_no_growth)
-    effective_growth_seconds = max(0, (growth_end_date - last_updated).total_seconds())
+    effective_growth_seconds = max(0, int((growth_end_date - last_updated).total_seconds()))
+    print(f"end grow date {date_until_no_growth}")
+    print(f"effective growth {effective_growth_seconds}")
 
     cur.execute("""UPDATE planted_crops
                     SET total_time_grown = total_time_grown + %s

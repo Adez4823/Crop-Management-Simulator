@@ -156,7 +156,8 @@ def visit_field(user_obj):
         date_planted = crop['date_planted']
         total_growth_time = int(crop['total_growth_time_seconds'])
 
-        effective_growing_time = max(0, (effective_end_time - date_planted).total_seconds())
+        growth_start_time = max(date_planted, last_updated)
+        effective_growing_time = max(0, (effective_end_time - growth_start_time).total_seconds())
 
         if effective_growing_time >= total_growth_time:
             print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is ready to harvest!")
