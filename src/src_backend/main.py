@@ -66,7 +66,7 @@ def display_shop():
         print(f"You currently have ${curr_user.money}")
         counter = 1
         for row in rows:
-            print(f"{counter}: {row[1]} ${row[3]} (Rarity: {row[2]})")
+            print(f"{counter}: {row[1]} ${row[4]} (Rarity: {row[3]})")
             counter += 1
         
         print("0: Exit shop")
@@ -86,7 +86,7 @@ def display_shop():
         # Users must enter a valid choice
         elif shop_choice > 0 and shop_choice <= 3:
             item_to_buy = rows[shop_choice - 1]
-            item_price = item_to_buy[3]
+            item_price = item_to_buy[4]
             # Users aren't able to buy an item they can't afford
             if curr_user.money < item_price:
                 print("You don't have enough money to buy this item")
@@ -200,6 +200,42 @@ def harvest_crop_interface():
         else:
             print("This crop is not ready to be harvested yet!")
 
+def plant_crop_interface(user_obj):
+    """
+    Displays the planting interface and handle the user's choice
+
+    Args:
+        user_obj (User): The user object representing the current user
+
+    """
+
+    global curr_user
+    global test_field
+
+    planting = True
+    while planting:
+        curr_user.inventory.display_seeds()
+
+        print("0. Exit")
+        try:
+            user_input = int(input("Which seed would you like to plant (enter ID): "))
+        except ValueError:
+            print("Enter a valid choice!")
+            continue
+        
+        if user_input == 0:
+            print("Exiting...")
+            planting = False
+            return
+        else:
+            seed = get_seed_item(user_input)
+            if not seed:
+                print("Enter a valid choice!")
+                return
+            plant_type = seed['item_name'].replace(" Seed", "") 
+            test_field.plant_crop(curr_user, plant_type)
+            curr_user.inventory.remove_item(curr_user, seed['item_name'])
+
 
 def handle_choice(choice):
     """
@@ -221,7 +257,7 @@ def handle_choice(choice):
     elif choice_int == 2:
         test_field.fertilize_field(curr_user)
     elif choice_int == 3:
-        test_field.plant_crop(curr_user, "Potato")
+        plant_crop_interface(curr_user)
     elif choice_int == 4:
         visit_field(curr_user)
         harvest_crop_interface()

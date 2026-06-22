@@ -15,8 +15,8 @@ class UserInventory:
         if not rows:
             print("Inventory currently empty")
         else:
-            for item_id, item_name, rarity, buy_price, quantity in rows:
-                self.inventory_arr.append(Item(item_id, item_name, rarity, buy_price, quantity))
+            for item_id, item_name, item_type, rarity, buy_price, quantity in rows:
+                self.inventory_arr.append(Item(item_id, item_name, item_type, rarity, buy_price, quantity))
 
     def add_item(self, user_obj, item_name):
         """
@@ -29,6 +29,7 @@ class UserInventory:
         """
         from database import add_item_inventory_db, get_item_definition
 
+        # If the item already exists in the inventory, increment it
         for item in self.inventory_arr:
             if item.item_name == item_name:
                 item.quantity_item += 1
@@ -37,6 +38,7 @@ class UserInventory:
                 print(f"You added a {item_name} to your inventory!")
                 return
 
+        # If the item doesn't exist in the user's inventory, add it
         try:
             new_item_row = get_item_definition(item_name)
         except ValueError as err:
@@ -45,18 +47,49 @@ class UserInventory:
         
         add_item_inventory_db(user_obj.username, user_obj.password, item_name)
 
-        item_id, name, rarity, buy_price = new_item_row
-        new_item = Item(item_id, name, rarity, buy_price, 1)
+        item_id, name, item_type, rarity, buy_price = new_item_row
+        new_item = Item(item_id, name, item_type, rarity, buy_price, 1)
 
         self.inventory_arr.append(new_item)
     
     def display_inventory(self):
-        self.inventory_arr = []
-        rows = load_inventory_db(self.username, self.password)
+        items = load_inventory_db(self.username, self.password)
 
         # Cannot load an empty inventory
-        if not rows:
+        if not items:
             print("Inventory currently empty")
         else:
-            for _, item_name, rarity, _, quantity in rows:
-                print(f"{item_name}: {quantity} owned. ({rarity})")
+            for item in items:
+                print(f"{item['item_name']}: {item['quantity']} owned. ({item['rarity']})")
+
+    def display_seeds(self):
+        counter = 0
+        items = load_inventory_db(self.username, self.password)
+
+        # Cannot load an empty inventory
+        if not items:
+            print("Inventory currently empty")
+
+        for item in items:
+            if item['item_type'] == 'Seed':
+                print(f"{item['item_name']} (ID: {item['item_id']}): {item['quantity']} owned. ({item['rarity']})")
+                counter += 1
+
+        if counter == 0:
+            print("You don't have any seeds!")
+
+    def remove_item(self, user_obj, name_item):
+        from database import remove_item_inventory_db
+
+        for item in self.inventory_arr:
+            if str(item.item_name).strip() == str(name_item).strip():
+                # If user has multiple of an item, decrement
+                if item.quantity_item > 1:
+                    item.quantity_item -= 1
+                # Otherwise remove completely
+                else:
+                    self.inventory_arr.remove(item)
+
+                remove_item_inventory_db(user_obj.username, user_obj.password, name_item)
+                return
+

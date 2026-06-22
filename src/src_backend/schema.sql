@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS crop_types (
 CREATE TABLE IF NOT EXISTS items (
     item_id INT NOT NULL, 
     item_name VARCHAR(32) NOT NULL UNIQUE, 
+    item_type VARCHAR(32) NOT NULL, 
     rarity VARCHAR(32) NOT NULL, 
     buy_price INT NOT NULL, 
     PRIMARY KEY(item_id)

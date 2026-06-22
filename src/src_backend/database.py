@@ -59,20 +59,20 @@ def create_tables():
     # Initialize the item definition table to default values
     cur.execute("""
         INSERT INTO items 
-        (item_id, item_name, rarity, buy_price) 
+        (item_id, item_name, item_type, rarity, buy_price) 
         VALUES 
-                (1, 'Potato Seed', 'Common', 50),
-                (2, 'Leek Seed', 'Common', 20),
-                (3, 'Corn Seed', 'Uncommon', 20),
-                (4, 'Celery Seed', 'Uncommon', 20),
-                (5, 'Beans Seed', 'Uncommon', 20),
-                (6, 'Brussel Sprout Seed', 'Rare', 20),
-                (7, 'Potato', 'Common', 50),
-                (8, 'Leek', 'Common', 20),
-                (9, 'Corn', 'Uncommon', 20),
-                (10, 'Celery', 'Uncommon', 20),
-                (11, 'Beans', 'Uncommon', 20),
-                (12, 'Brussel Sprouts', 'Rare', 20)
+                (1, 'Potato Seed', 'Seed', 'Common', 50),
+                (2, 'Leek Seed', 'Seed', 'Common', 20),
+                (3, 'Corn Seed', 'Seed', 'Uncommon', 20),
+                (4, 'Celery Seed', 'Seed', 'Uncommon', 20),
+                (5, 'Beans Seed', 'Seed', 'Uncommon', 20),
+                (6, 'Brussel Sprout Seed', 'Seed', 'Rare', 20),
+                (7, 'Potato', 'Crop', 'Common', 50),
+                (8, 'Leek', 'Crop', 'Common', 20),
+                (9, 'Corn', 'Crop', 'Uncommon', 20),
+                (10, 'Celery', 'Crop', 'Uncommon', 20),
+                (11, 'Beans', 'Crop', 'Uncommon', 20),
+                (12, 'Brussel Sprouts', 'Crop', 'Rare', 20)
                 ON CONFLICT DO NOTHING;
     """)
 
@@ -279,9 +279,9 @@ def load_inventory_db(username, password):
     """
 
     conn = connect_to_db()
-    cur = conn.cursor()
+    cur = conn.cursor(row_factory=dict_row)
 
-    cur.execute("""SELECT user_inventories.item_id, items.item_name, items.rarity, items.buy_price, user_inventories.quantity
+    cur.execute("""SELECT user_inventories.item_id, items.item_name, items.item_type, items.rarity, items.buy_price, user_inventories.quantity
                 FROM user_inventories JOIN items ON items.item_id = user_inventories.item_id
                 WHERE user_inventories.username = %s AND user_inventories.password = %s
             """, (username, password))
@@ -390,6 +390,45 @@ def add_item_inventory_db(username, password, item_name):
                         VALUES 
                             (%s, %s, %s, %s);
                     """, (username, password, item_id, 1))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def remove_item_inventory_db(username, password, item_name):
+    """
+    Allows the user to remmove items
+
+    Removes an item to the user's inventory in the database
+
+    Args:
+        username (str): The username of the current user
+        password (str): The password of the current user
+        item_name (str): The name of the item that is to be removed from the user's inventory
+
+    Raises:
+        ValueError: If the item_name doesn't match an item in the item definitions table (can't happen at this moment, but added for flexibility/redundancy)
+    """
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    item_id = get_item_id(item_name)
+
+    cur.execute("SELECT * FROM user_inventories WHERE username = %s AND password = %s AND item_id = %s", (username, password, item_id))
+
+    inventory_row = cur.fetchone()
+
+    if not inventory_row:
+        print("You don't own this item!")
+        return
+
+    if inventory_row['quantity'] > 1:
+        # Decrement item in the player's inventory if they already have it
+        cur.execute("""UPDATE user_inventories 
+                    SET quantity = quantity - %s WHERE item_id = %s AND username = %s AND password = %s;
+                    """, (1, item_id, username, password))
+    else:
+        cur.execute("DELETE FROM user_inventories WHERE item_id = %s AND username = %s AND password = %s;", (item_id, username, password))
 
     conn.commit()
     cur.close()
@@ -632,8 +671,6 @@ def update_field_decay(username, password, persist=True):
 
     growth_end_date = min(now, date_until_no_growth)
     effective_growth_seconds = max(0, int((growth_end_date - last_updated).total_seconds()))
-    print(f"end grow date {date_until_no_growth}")
-    print(f"effective growth {effective_growth_seconds}")
 
     cur.execute("""UPDATE planted_crops
                     SET total_time_grown = total_time_grown + %s
@@ -719,3 +756,27 @@ def get_last_updated(username, password):
     conn.close()
 
     return last_updated
+
+
+def get_seed_item(item_id):
+    
+    
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    cur.execute("SELECT item_id FROM user_inventories WHERE item_id = %s;", (item_id,))
+    row = cur.fetchone()
+
+    if not row:
+        cur.close()
+        conn.close()
+        return None
+    else:
+        cur.execute("SELECT item_name, item_type FROM items WHERE item_id = %s;", (item_id,))
+        item_row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        return item_row
+    
+
