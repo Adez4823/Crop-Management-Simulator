@@ -21,6 +21,10 @@ class Field:
         Add water to the field.
 
         Adds 10 to the field's moisture, given the field is not fully watered.
+
+        Args:
+            user_obj (User): User object representing the current user
+
         """
 
         from database import water_field_db, update_field_decay
@@ -43,6 +47,9 @@ class Field:
         Add fertilizer to the field.
 
         Adds 20 to the field's fertilizer percentage given the field is less than 80% fertilized.
+
+        Args:
+            user_obj (User): User object representing the current user
         """
         from database import fertilize_field_db, update_field_decay
 

@@ -8,6 +8,12 @@ class UserInventory:
         self.inventory_arr = inventory_arr or []
 
     def load_inventory(self):
+        """
+        Loads the user's inventory from the database
+
+        Creates and adds item objects to the user's inventory corresponding to what is shown in the database
+
+        """
         self.inventory_arr = []
         rows = load_inventory_db(self.username, self.password)
 
@@ -15,6 +21,7 @@ class UserInventory:
         if not rows:
             print("Inventory currently empty")
         else:
+            # Create item objects from the database rows
             for item_id, item_name, item_type, rarity, buy_price, quantity in rows:
                 self.inventory_arr.append(Item(item_id, item_name, item_type, rarity, buy_price, quantity))
 
@@ -53,6 +60,10 @@ class UserInventory:
         self.inventory_arr.append(new_item)
     
     def display_inventory(self):
+        """
+        Prints the user's inventory to the terminal
+
+        """
         items = load_inventory_db(self.username, self.password)
 
         # Cannot load an empty inventory
@@ -63,6 +74,11 @@ class UserInventory:
                 print(f"{item['item_name']}: {item['quantity']} owned. ({item['rarity']})")
 
     def display_seeds(self):
+        """
+        Displays all items that are of type 'Seed' in the user's inventory
+
+        """
+
         counter = 0
         items = load_inventory_db(self.username, self.password)
 
@@ -70,15 +86,27 @@ class UserInventory:
         if not items:
             print("Inventory currently empty")
 
+        # Print out all items of type 'Seed'
         for item in items:
             if item['item_type'] == 'Seed':
                 print(f"{item['item_name']} (ID: {item['item_id']}): {item['quantity']} owned. ({item['rarity']})")
                 counter += 1
 
+        # If no seeds are found, let the user know
         if counter == 0:
             print("You don't have any seeds!")
 
     def remove_item(self, user_obj, name_item):
+        """
+        Removes an item from the user's inventory
+
+        The item is removed/decremented in the database and removed from the inventory object
+
+        Args:
+            user_obj (User): Represents the current user
+            name_item (str): The name of the object to be deleted
+
+        """
         from database import remove_item_inventory_db
 
         for item in self.inventory_arr:

@@ -100,14 +100,28 @@ def display_shop():
             print("Enter a valid choice!")
 
 def is_harvestable(crop_id):
-    
+    """
+    Determines if a crop is ready to harvest
+
+    Args:
+        crop_id (int): The id that corresponds to the planted crop
+
+    Returns:
+        boolean: True if crop is ready to harvest
+
+    """
+    # Get the row corresponding to the crop id
     crop = get_planted_crop(crop_id)
+    # User's cannot enter an invalid id
     if not crop:
         print("Enter a valid crop ID!")
         return
     
+    # Determine the time that has passed after a crop has been planted
     seconds_after_planting = int(crop['seconds_after_planting'])
     total_growth_time = int(crop['total_growth_time_seconds'])
+    
+    # Crops cannot be harvested if they have not grown their full time
     if seconds_after_planting >= total_growth_time:
         return True
     return False
@@ -125,10 +139,14 @@ def visit_field(user_obj):
     global moisture_decay_rate
     global fertilizer_decay_rate
 
+    # Get all rows of planted crops that the current user has
     planted_crops = get_crop_times(user_obj.username, user_obj.password)
+    # Get the row corresponding to the current user's field
     field_row = get_field_moisture_fertilizer(user_obj.username, user_obj.password)
+    # Time since the field has been updated
     last_updated = get_last_updated(user_obj.username, user_obj.password)
 
+    # User's cannot visit an empty field
     if not field_row:
         print("Your field is empty, plant some crops!")
         return
@@ -138,7 +156,7 @@ def visit_field(user_obj):
 
     now = datetime.now(timezone.utc)
     elapsed_seconds = (now - last_updated).total_seconds()
-
+    # Calculate the current moisture/fertilizer based off time passed
     moisture_now = max(0, moisture_percent - (elapsed_seconds * moisture_decay_rate))
     fertilizer_now = max(0, fertilizer_percent - (elapsed_seconds * fertilizer_decay_rate))
 
@@ -147,11 +165,14 @@ def visit_field(user_obj):
 
     time_until_dry = moisture_percent / moisture_decay_rate
     time_until_unfertilized = fertilizer_percent / fertilizer_decay_rate
+    # Seconds until either the field's fertilizer or moisture are 0
     field_death_time = last_updated + timedelta(seconds=min(time_until_dry, time_until_unfertilized))
 
     now = datetime.now(timezone.utc)
+    # The datetime object representing when crops in the field stop growing
     effective_end_time = min(now, field_death_time)
 
+    # Show how much each crop has grown
     for crop in planted_crops:
         date_planted = crop['date_planted']
         total_growth_time = int(crop['total_growth_time_seconds'])
@@ -217,12 +238,13 @@ def plant_crop_interface(user_obj):
         curr_user.inventory.display_seeds()
 
         print("0. Exit")
+        # User's must enter in a valid seed id
         try:
             user_input = int(input("Which seed would you like to plant (enter ID): "))
         except ValueError:
             print("Enter a valid choice!")
             continue
-        
+        # Exiting the plant_crop_interface
         if user_input == 0:
             print("Exiting...")
             planting = False
@@ -233,7 +255,9 @@ def plant_crop_interface(user_obj):
                 print("Enter a valid choice!")
                 return
             plant_type = seed['item_name'].replace(" Seed", "") 
+            # Plant the corresponding crop
             test_field.plant_crop(curr_user, plant_type)
+            # Remove the seed object
             curr_user.inventory.remove_item(curr_user, seed['item_name'])
 
 

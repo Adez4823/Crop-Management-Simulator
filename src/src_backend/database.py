@@ -421,12 +421,12 @@ def remove_item_inventory_db(username, password, item_name):
     if not inventory_row:
         print("You don't own this item!")
         return
-
+    # Decrement item if the user has more than 1 of the item
     if inventory_row['quantity'] > 1:
-        # Decrement item in the player's inventory if they already have it
         cur.execute("""UPDATE user_inventories 
                     SET quantity = quantity - %s WHERE item_id = %s AND username = %s AND password = %s;
                     """, (1, item_id, username, password))
+    # Delete the item row if the user only has one of the item
     else:
         cur.execute("DELETE FROM user_inventories WHERE item_id = %s AND username = %s AND password = %s;", (item_id, username, password))
 
@@ -606,6 +606,14 @@ def get_field_id(username, password):
     return field_id
 
 def get_crop_times(username, password):
+    """
+    Get the info of all the user's current planted crops
+
+    Args:
+        username (str): The username of the current user
+        password (str): The password of the current user
+
+    """
 
     field_id = get_field_id(username, password)
     
@@ -635,7 +643,9 @@ def update_field_decay(username, password, persist=True):
     Args:
         username (str): The username of the current user
         password (str): The password of the current user
+        persist  (bool): True for updating, False to get updated moisture/fertilizer levels
     """
+
     global moisture_decay_rate
     global fertilizer_decay_rate
     user_id = get_user_id(username, password)
@@ -648,14 +658,14 @@ def update_field_decay(username, password, persist=True):
 
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
-
+    # Obtain the field data from when it was last updated
     cur.execute("SELECT last_updated, date_until_no_growth FROM fields WHERE user_id = %s;", (user_id,))
     row = cur.fetchone()
     last_updated = row['last_updated']
     date_until_no_growth = row['date_until_no_growth']
 
     now = datetime.now(timezone.utc)
-
+    # Calculate decay since the last field update
     seconds_since_last_update = (now - last_updated).total_seconds()
 
     moisture_decay = seconds_since_last_update * moisture_decay_rate
@@ -663,20 +673,20 @@ def update_field_decay(username, password, persist=True):
 
     moisture_after_decay = max(0.00, moisture_percent - moisture_decay)
     fertilizer_after_decay = max(0.00, fertilizer_percent - fertilizer_decay)
-
+    # Return the decayed values if persist=False
     if not persist:
         cur.close()
         conn.close()
         return moisture_after_decay, fertilizer_after_decay
-
+    
     growth_end_date = min(now, date_until_no_growth)
+    # Calculate the time that plants could have grown between the last update and now
     effective_growth_seconds = max(0, int((growth_end_date - last_updated).total_seconds()))
-
+    # Update the time grown for each crop
     cur.execute("""UPDATE planted_crops
                     SET total_time_grown = total_time_grown + %s
                     WHERE field_id = %s;
                 """, (effective_growth_seconds, field_id))
-
     if moisture_after_decay <= 0 or fertilizer_after_decay <= 0:
         date_until_no_growth = now
     else:
@@ -726,6 +736,16 @@ def get_field_moisture_fertilizer(username, password):
     return row
 
 def get_planted_crop(crop_id):
+    """
+    Get the row corresponding to the crop id
+
+    Args:
+        crop_id (int): The id corresponding to a planted crop
+
+    Returns:
+        dict: The dict row representing the planted crop
+
+    """
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
 
@@ -743,6 +763,17 @@ def get_planted_crop(crop_id):
     return row
 
 def get_last_updated(username, password):
+    """
+    Get the last_updated date for the user's field
+
+    Args:
+        username (str): The user's username that was inputted to the login interface
+        password (str): The user's password that was inputted to the login interface
+
+    Returns:
+        datetime: The datetime object that represents the field's last update time
+
+    """
 
     user_id = get_user_id(username, password)
     conn = connect_to_db()
@@ -759,6 +790,18 @@ def get_last_updated(username, password):
 
 
 def get_seed_item(item_id):
+    """
+    Get the seed item corresponding to an item id
+
+    If the entered id isn't a seed, the user will be told as such
+
+    Args:
+        item_id (int): The id corresponding to an item in the user's inventory
+
+    Returns:
+        dict: The item row representing the seed corresponding to the item_id
+    
+    """
     
     
     conn = connect_to_db()
