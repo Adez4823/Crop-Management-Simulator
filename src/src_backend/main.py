@@ -110,6 +110,9 @@ def is_harvestable(crop_id):
         boolean: True if crop is ready to harvest
 
     """
+    global curr_user
+
+    update_field_decay(curr_user.username, curr_user.password, persist=True)
     # Get the row corresponding to the crop id
     crop = get_planted_crop(crop_id)
     # User's cannot enter an invalid id
@@ -118,11 +121,11 @@ def is_harvestable(crop_id):
         return
     
     # Determine the time that has passed after a crop has been planted
-    seconds_after_planting = int(crop['seconds_after_planting'])
+    total_time_grown = int(crop['total_time_grown'])
     total_growth_time = int(crop['total_growth_time_seconds'])
     
     # Crops cannot be harvested if they have not grown their full time
-    if seconds_after_planting >= total_growth_time:
+    if total_time_grown >= total_growth_time:
         return True
     return False
 

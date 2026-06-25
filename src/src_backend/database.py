@@ -749,8 +749,7 @@ def get_planted_crop(crop_id):
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
 
-    cur.execute("""SELECT crop_type, total_growth_time_seconds, 
-                EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - date_planted)) AS seconds_after_planting
+    cur.execute("""SELECT crop_type, total_growth_time_seconds, total_time_grown
                 FROM planted_crops
                 WHERE planted_crop_id = %s;
                 """, (crop_id,))
