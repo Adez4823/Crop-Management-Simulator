@@ -2,9 +2,59 @@ import psycopg
 import os
 from psycopg.rows import dict_row
 from datetime import datetime, timezone, timedelta
+import requests
+
+OPENWEATHER_API_KEY = os.environ["OPENWEATHER_API_KEY"]
+
+def get_weather_rates(WEATHER_API_KEY):
+    """
+    Updates the moisture_decay_rate global variable based off of the weather of Seattle
+
+    Later this function will be changed to be the weather of the user's location
+
+    Args:
+        WEATHER_API_KEY (str): the API key for the openweathermap
+    
+    returns:
+        float: The float representing the moisture_decay_rate
+
+    """
+
+    city = "Seattle"
+
+    geo_url = "https://api.openweathermap.org/geo/1.0/direct"
+
+    params = {
+        "q": city,
+        "appid": WEATHER_API_KEY
+    }
+
+    geo_data_response = requests.get(geo_url, params=params)
+    geo_data = geo_data_response.json()
+
+    latitude = geo_data[0]["lat"]
+    longitude = geo_data[0]["lon"]
+
+    weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={WEATHER_API_KEY}"
+
+    weather_response = requests.get(weather_url)
+
+    weather_data = weather_response.json()
+
+    temp = weather_data["main"]["temp"]
+
+    fahrenheit = (temp - 273.15) * (9/5) + 32
+
+    if fahrenheit > 95.0:
+        return 0.1
+    elif fahrenheit > 80 and fahrenheit < 90:
+        return 0.05
+    else:
+        return 0.0
 
 # global variables
-moisture_decay_rate = 0.05
+moisture_decay_rate = get_weather_rates(OPENWEATHER_API_KEY)
+print(f"Moisture_decay_rate: {moisture_decay_rate}")
 fertilizer_decay_rate = 0.01
 
 def connect_to_db():
