@@ -1,3 +1,6 @@
+from datetime import datetime, timezone, timedelta
+from config import MOISTURE_DECAY_RATE, FERTILIZER_DECAY_RATE
+
 class Field:
     """
     Represents a user's field.
@@ -105,3 +108,60 @@ class Field:
             self.num_plants = self.num_plants - 1
             harvest_crop_db(user_obj.username, user_obj.password, planted_crop_id)
 
+
+    def get_field_status(self, user_obj):
+        from database import get_field_data
+        from database import get_planted_crops
+
+
+        username = user_obj.username
+        password = user_obj.password
+
+
+        field_data = get_field_data(username, password)
+
+
+        crops = get_planted_crops(username, password)
+
+
+        moisture_percent = field_data['moisture_percent']
+        fertilizer_percent = field_data['fertilizer_percent']
+        date_until_no_growth = field_data['date_until_no_growth']
+        last_updated = field_data['last_updated']
+
+        now = datetime.now(timezone.utc)
+
+        elapsed_seconds = (now - last_updated).total_seconds()
+
+        # Calculate the seconds since last_updated where crop growth was possible
+        if now <= date_until_no_growth:
+            effective_growth_seconds = (now - last_updated).total_seconds()
+        else:
+            effective_growth_seconds = (date_until_no_growth - last_updated).total_seconds()
+
+        # Predict the current moisture/fertilizer based off time passed
+        predicted_moisture_now = max(0, moisture_percent - (elapsed_seconds * MOISTURE_DECAY_RATE))
+        predicted_fertilizer_now = max(0, fertilizer_percent - (elapsed_seconds * FERTILIZER_DECAY_RATE))
+
+        crop_info = []
+
+
+        for crop in crops:
+            time_grown = crop['total_time_grown'] + effective_growth_seconds
+
+            ready_to_harvest = time_grown >= crop["total_growth_time_seconds"]
+
+            crop_info.append({
+                "planted_crop_id": crop["planted_crop_id"],
+                "crop_type": crop["crop_type"],
+                "ready_to_harvest": ready_to_harvest,
+                "time_grown": time_grown,
+                "time_until_grown": max(0, crop["total_growth_time_seconds"] - time_grown)
+            })
+
+
+        return {
+            "moisture": predicted_moisture_now,
+            "fertilizer": predicted_fertilizer_now,
+            "crops": crop_info
+        }

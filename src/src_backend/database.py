@@ -53,9 +53,10 @@ def get_weather_rates(WEATHER_API_KEY):
         return 0.0
 
 # global variables
-moisture_decay_rate = get_weather_rates(OPENWEATHER_API_KEY)
-print(f"Moisture_decay_rate: {moisture_decay_rate}")
+# moisture_decay_rate = get_weather_rates(OPENWEATHER_API_KEY)
+# print(f"Moisture_decay_rate: {moisture_decay_rate}")
 fertilizer_decay_rate = 0.01
+moisture_decay_rate = 0.05
 
 def connect_to_db():
     """
@@ -612,6 +613,8 @@ def water_field_db(username, password):
     cur.close()
     conn.close()
 
+    update_field_death_time(username, password)
+
 def fertilize_field_db(username, password):
     """
     Fertilize the user's field by updating their fertilizer percentage
@@ -628,6 +631,8 @@ def fertilize_field_db(username, password):
     conn.commit()
     cur.close()
     conn.close()
+
+    update_field_death_time(username, password)
 
 def get_field_id(username, password):
     """
@@ -655,7 +660,7 @@ def get_field_id(username, password):
 
     return field_id
 
-def get_crop_times(username, password):
+def get_planted_crops(username, password):
     """
     Get the info of all the user's current planted crops
 
@@ -871,4 +876,89 @@ def get_seed_item(item_id):
 
         return item_row
     
+def get_field_data(username, password):
+    """
+    Gets all data relating to a user's field
+
+
+    Args:
+        username (str): The user's username that was inputted to the login interface
+        password (str): The user's password that was inputted to the login interface
+   
+    Returns:
+        dict: The dict representing the user's field
+
+
+    """
+
+
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+
+    user_id = get_user_id(username, password)
+
+
+    cur.execute("""SELECT moisture_percent, fertilizer_percent, last_updated, date_until_no_growth
+                    FROM fields
+                    WHERE  user_id = %s;""",
+                    (user_id,))
+   
+    field_data = cur.fetchone()
+
+
+    if not field_data:
+        print("This user does not have a field!")
+        return
+   
+   
+    cur.close()
+    conn.close()
+
+
+    return field_data
+
+def update_field_death_time(username, password):
+    """
+    calculate and update the time_until_no_growth of a user's field
+
+    Args:
+        username (str): The user's username that was inputted to the login interface
+        pw       (str): The user's password that was inputted to the login interface
+
+    """
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    user_id = get_user_id(username, password)
+
+    cur.execute("""SELECT moisture_percent, fertilizer_percent, last_updated
+                    FROM fields
+                    WHERE  user_id = %s;""",
+                    (user_id,))
+    
+    field_row = cur.fetchone()
+
+    moisture_percent = field_row['moisture_percent']
+    fertilizer_percent = field_row['fertilizer_percent']
+
+    if moisture_percent <= 0 or fertilizer_percent <= 0:
+        date_until_no_growth = field_row['last_updated']
+    else:
+        try:
+            seconds_till_dry = moisture_percent / moisture_decay_rate
+            seconds_till_no_fertilizer = fertilizer_percent / fertilizer_decay_rate
+        except ZeroDivisionError:
+            seconds_till_dry = float('inf')
+            seconds_till_no_fertilizer = fertilizer_percent / fertilizer_decay_rate                
+
+        effective_seconds_to_death = min(seconds_till_dry, seconds_till_no_fertilizer)
+        date_until_no_growth = (field_row['last_updated'] + timedelta(seconds=effective_seconds_to_death))
+
+    cur.execute("UPDATE fields SET date_until_no_growth = %s WHERE user_id = %s;"
+                , (date_until_no_growth, user_id))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
 

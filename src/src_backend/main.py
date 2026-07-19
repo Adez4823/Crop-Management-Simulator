@@ -133,62 +133,34 @@ def visit_field(user_obj):
     """
     Allows the user to visit their field
 
+
     This method will show the user what is planted, what is fully grown, and the field's conditions
+
 
     Args:
         user_obj (User): The object representing the current user
 
+
     """
-    global moisture_decay_rate
-    global fertilizer_decay_rate
 
-    # Get all rows of planted crops that the current user has
-    planted_crops = get_crop_times(user_obj.username, user_obj.password)
-    # Get the row corresponding to the current user's field
-    field_row = get_field_moisture_fertilizer(user_obj.username, user_obj.password)
-    # Time since the field has been updated
-    last_updated = get_last_updated(user_obj.username, user_obj.password)
 
-    # User's cannot visit an empty field
-    if not field_row:
-        print("Your field is empty, plant some crops!")
-        return
+    field_status = test_field.get_field_status(user_obj)
 
-    moisture_percent = field_row['moisture_percent']
-    fertilizer_percent = field_row['fertilizer_percent']
 
-    now = datetime.now(timezone.utc)
-    elapsed_seconds = (now - last_updated).total_seconds()
-    # Calculate the current moisture/fertilizer based off time passed
-    moisture_now = max(0, moisture_percent - (elapsed_seconds * moisture_decay_rate))
-    fertilizer_now = max(0, fertilizer_percent - (elapsed_seconds * fertilizer_decay_rate))
+    print(f"Your field: ")
+    print(f"Moisture: {int(field_status['moisture'])} Fertilizer: {int(field_status['fertilizer'])}")
+    print()
 
-    print("Your field: ")
-    print(f"Moisture percent: {int(moisture_now)}  Fertilizer percent: {int(fertilizer_now)}")
 
-    time_until_dry = moisture_percent / moisture_decay_rate
-    time_until_unfertilized = fertilizer_percent / fertilizer_decay_rate
-    # Seconds until either the field's fertilizer or moisture are 0
-    field_death_time = last_updated + timedelta(seconds=min(time_until_dry, time_until_unfertilized))
-
-    now = datetime.now(timezone.utc)
-    # The datetime object representing when crops in the field stop growing
-    effective_end_time = min(now, field_death_time)
-
-    # Show how much each crop has grown
-    for crop in planted_crops:
-        date_planted = crop['date_planted']
-        total_growth_time = int(crop['total_growth_time_seconds'])
-
-        growth_start_time = max(date_planted, last_updated)
-        effective_growing_time = max(0, (effective_end_time - growth_start_time).total_seconds())
-
-        if effective_growing_time >= total_growth_time:
-            print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is ready to harvest!")
+    for crop in field_status['crops']:
+        if crop['ready_to_harvest']:
+            print(f"{crop['crop_type']} ID: {crop['planted_crop_id']} is ready to harvest!")
+            print()
         else:
-            time_remaining_seconds = total_growth_time - effective_growing_time
-            print(f"Crop: {crop['crop_type']} (ID: {crop['planted_crop_id']}) is still growing!")
-            print(f"time remaining (seconds): {int(time_remaining_seconds)}")
+            print(f"{crop['crop_type']} ID: {crop['planted_crop_id']} is still growing!")
+            print(f"Time Remaining (seconds): {crop['time_until_grown']}")
+            print()
+
 
 
 def harvest_crop_interface():
