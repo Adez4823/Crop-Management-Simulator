@@ -2,11 +2,15 @@ import sys
 from user import User
 from field_class import *
 from crop import *
-from database import *
 from user_inventory import *
+import requests
 
 from dotenv import load_dotenv
 load_dotenv("../../.env")
+
+import config
+from weather import get_weather_rates
+from database import *
 
 # Global Variables
 running = True
@@ -251,6 +255,8 @@ def handle_choice(choice):
     if choice_int == 0:
         global running
         running = False
+        curr_user.logout()
+        print("Exiting...")
     elif choice_int == 1:
         test_field.water_field(curr_user)
     elif choice_int == 2:
@@ -386,6 +392,13 @@ def main():
     """
     global curr_user
     global test_field
+
+    try:
+        config.set_moisture_decay_rate(
+            get_weather_rates(config.CURRENT_CITY)
+        )
+    except requests.RequestException:
+        print("Weather API unavailable. Using default decay rate.")
 
     create_tables()
     curr_user = login_signup_interface()

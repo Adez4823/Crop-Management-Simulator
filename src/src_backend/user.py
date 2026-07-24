@@ -3,6 +3,7 @@ class User:
     Represents a user.
 
     Attributes:
+        user_id (int): User's unique ID
         username (str): User's name 
         password (str): User's password (For the future login/sign-up)
         money    (int): User's cash amount
@@ -15,5 +16,15 @@ class User:
             self.password = password
             self.money = money
             self.inventory = inventory
+
+    def logout(self):
+        """
+        Saves the user's data to the database in order to log out safely
+
+        """
+        from database import update_field_decay
+
+        update_field_decay(self.user_id, persist=True)
+
 
     

@@ -2,61 +2,7 @@ import psycopg
 import os
 from psycopg.rows import dict_row
 from datetime import datetime, timezone, timedelta
-import requests
-
-OPENWEATHER_API_KEY = os.environ["OPENWEATHER_API_KEY"]
-
-def get_weather_rates(WEATHER_API_KEY):
-    """
-    Updates the moisture_decay_rate global variable based off of the weather of Seattle
-
-    Later this function will be changed to be the weather of the user's location
-
-    Args:
-        WEATHER_API_KEY (str): the API key for the openweathermap
-    
-    returns:
-        float: The float representing the moisture_decay_rate
-
-    """
-
-    city = "Seattle"
-
-    geo_url = "https://api.openweathermap.org/geo/1.0/direct"
-
-    params = {
-        "q": city,
-        "appid": WEATHER_API_KEY
-    }
-
-    geo_data_response = requests.get(geo_url, params=params)
-    geo_data = geo_data_response.json()
-
-    latitude = geo_data[0]["lat"]
-    longitude = geo_data[0]["lon"]
-
-    weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={WEATHER_API_KEY}"
-
-    weather_response = requests.get(weather_url)
-
-    weather_data = weather_response.json()
-
-    temp = weather_data["main"]["temp"]
-
-    fahrenheit = (temp - 273.15) * (9/5) + 32
-
-    if fahrenheit > 95.0:
-        return 0.1
-    elif fahrenheit > 80 and fahrenheit < 90:
-        return 0.05
-    else:
-        return 0.0
-
-# global variables
-# moisture_decay_rate = get_weather_rates(OPENWEATHER_API_KEY)
-# print(f"Moisture_decay_rate: {moisture_decay_rate}")
-fertilizer_decay_rate = 0.01
-moisture_decay_rate = 0.05
+import config
 
 def connect_to_db():
     """
@@ -676,8 +622,6 @@ def update_field_decay(user_id, persist=True):
         persist  (bool): True for updating, False to get updated moisture/fertilizer levels
     """
 
-    global moisture_decay_rate
-    global fertilizer_decay_rate
     field_id = get_field_id(user_id) 
 
     field_row = get_field_moisture_fertilizer(user_id)
@@ -697,8 +641,8 @@ def update_field_decay(user_id, persist=True):
     # Calculate decay since the last field update
     seconds_since_last_update = (now - last_updated).total_seconds()
 
-    moisture_decay = seconds_since_last_update * moisture_decay_rate
-    fertilizer_decay = seconds_since_last_update * fertilizer_decay_rate
+    moisture_decay = seconds_since_last_update * config.MOISTURE_DECAY_RATE
+    fertilizer_decay = seconds_since_last_update * config.FERTILIZER_DECAY_RATE
 
     moisture_after_decay = max(0.00, moisture_percent - moisture_decay)
     fertilizer_after_decay = max(0.00, fertilizer_percent - fertilizer_decay)
@@ -719,8 +663,11 @@ def update_field_decay(user_id, persist=True):
     if moisture_after_decay <= 0 or fertilizer_after_decay <= 0:
         date_until_no_growth = now
     else:
-        time_until_dry = moisture_after_decay / moisture_decay_rate
-        time_until_no_fertilizer = fertilizer_after_decay / fertilizer_decay_rate
+        try:
+            time_until_dry = moisture_after_decay / config.MOISTURE_DECAY_RATE
+        except ZeroDivisionError:
+            time_until_dry = float('inf')
+        time_until_no_fertilizer = fertilizer_after_decay / config.FERTILIZER_DECAY_RATE
         seconds_until_no_growth = min(time_until_dry, time_until_no_fertilizer)
 
         date_until_no_growth = now + timedelta(seconds=seconds_until_no_growth)
@@ -907,11 +854,11 @@ def update_field_death_time(user_id):
         date_until_no_growth = field_row['last_updated']
     else:
         try:
-            seconds_till_dry = moisture_percent / moisture_decay_rate
-            seconds_till_no_fertilizer = fertilizer_percent / fertilizer_decay_rate
+            seconds_till_dry = moisture_percent / config.MOISTURE_DECAY_RATE
+            seconds_till_no_fertilizer = fertilizer_percent / config.FERTILIZER_DECAY_RATE
         except ZeroDivisionError:
             seconds_till_dry = float('inf')
-            seconds_till_no_fertilizer = fertilizer_percent / fertilizer_decay_rate                
+            seconds_till_no_fertilizer = fertilizer_percent / config.FERTILIZER_DECAY_RATE
 
         effective_seconds_to_death = min(seconds_till_dry, seconds_till_no_fertilizer)
         date_until_no_growth = (field_row['last_updated'] + timedelta(seconds=effective_seconds_to_death))

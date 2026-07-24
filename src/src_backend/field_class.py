@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from config import MOISTURE_DECAY_RATE, FERTILIZER_DECAY_RATE
+import config
 
 class Field:
     """
@@ -132,8 +132,8 @@ class Field:
             effective_growth_seconds = (date_until_no_growth - last_updated).total_seconds()
 
         # Predict the current moisture/fertilizer based off time passed
-        predicted_moisture_now = max(0, moisture_percent - (elapsed_seconds * MOISTURE_DECAY_RATE))
-        predicted_fertilizer_now = max(0, fertilizer_percent - (elapsed_seconds * FERTILIZER_DECAY_RATE))
+        predicted_moisture_now = max(0, moisture_percent - (elapsed_seconds * config.MOISTURE_DECAY_RATE))
+        predicted_fertilizer_now = max(0, fertilizer_percent - (elapsed_seconds * config.FERTILIZER_DECAY_RATE))
 
         crop_info = []
 
