@@ -2,9 +2,8 @@ from database import load_inventory_db
 from item import Item
 
 class UserInventory:
-    def __init__(self, username, password, inventory_arr=None):
-        self.username = username
-        self.password = password
+    def __init__(self, user_id, inventory_arr=None):
+        self.user_id = user_id
         self.inventory_arr = inventory_arr or []
 
     def load_inventory(self):
@@ -15,22 +14,29 @@ class UserInventory:
 
         """
         self.inventory_arr = []
-        rows = load_inventory_db(self.username, self.password)
+        rows = load_inventory_db(self.user_id)
 
         # Cannot load an empty inventory
         if not rows:
             print("Inventory currently empty")
         else:
             # Create item objects from the database rows
-            for item_id, item_name, item_type, rarity, buy_price, quantity in rows:
-                self.inventory_arr.append(Item(item_id, item_name, item_type, rarity, buy_price, quantity))
+            for row in rows:
+                item_id = row['item_id']
+                item_name = row['item_name']
+                item_type = row['item_type']
+                item_rarity = row['rarity']
+                item_price = row['buy_price']
+                quantity_item = row['quantity']
 
-    def add_item(self, user_obj, item_name):
+                new_item = Item(item_id, item_name, item_type, item_rarity, item_price, quantity_item)
+                self.inventory_arr.append(new_item)
+
+    def add_item(self, item_name):
         """
         Add an item to the user's inventory
 
         Args:
-            user_obj  (User): The User object that represents the current user
             item_name (str): The name of the item to be added to the user's inventory
 
         """
@@ -41,7 +47,7 @@ class UserInventory:
             if item.item_name == item_name:
                 item.quantity_item += 1
 
-                add_item_inventory_db(user_obj.username, user_obj.password, item_name)
+                add_item_inventory_db(self.user_id, item_name)
                 print(f"You added a {item_name} to your inventory!")
                 return
 
@@ -52,7 +58,7 @@ class UserInventory:
             print(err)
             return
         
-        add_item_inventory_db(user_obj.username, user_obj.password, item_name)
+        add_item_inventory_db(self.user_id, item_name)
 
         item_id, name, item_type, rarity, buy_price = new_item_row
         new_item = Item(item_id, name, item_type, rarity, buy_price, 1)
@@ -64,7 +70,7 @@ class UserInventory:
         Prints the user's inventory to the terminal
 
         """
-        items = load_inventory_db(self.username, self.password)
+        items = load_inventory_db(self.user_id)
 
         # Cannot load an empty inventory
         if not items:
@@ -80,7 +86,7 @@ class UserInventory:
         """
 
         counter = 0
-        items = load_inventory_db(self.username, self.password)
+        items = load_inventory_db(self.user_id)
 
         # Cannot load an empty inventory
         if not items:
@@ -96,14 +102,13 @@ class UserInventory:
         if counter == 0:
             print("You don't have any seeds!")
 
-    def remove_item(self, user_obj, name_item):
+    def remove_item(self, name_item):
         """
         Removes an item from the user's inventory
 
         The item is removed/decremented in the database and removed from the inventory object
 
         Args:
-            user_obj (User): Represents the current user
             name_item (str): The name of the object to be deleted
 
         """
@@ -118,6 +123,6 @@ class UserInventory:
                 else:
                     self.inventory_arr.remove(item)
 
-                remove_item_inventory_db(user_obj.username, user_obj.password, name_item)
+                remove_item_inventory_db(self.user_id, name_item)
                 return
 

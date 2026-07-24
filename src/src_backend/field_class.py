@@ -33,7 +33,7 @@ class Field:
         from database import water_field_db, update_field_decay
 
 
-        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.username, user_obj.password, persist=False)
+        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.user_id, persist=False)
 
         self.moisture_percent = moisture_after_decay
         self.fertilizer_percent = fertilizer_after_decay
@@ -43,7 +43,7 @@ class Field:
         else:
             self.moisture_percent += 10
             print(f"You watered your field, its moisture content is now {self.moisture_percent}")
-            water_field_db(user_obj.username, user_obj.password)
+            water_field_db(user_obj.user_id)
 
     def fertilize_field(self, user_obj):
         """
@@ -57,7 +57,7 @@ class Field:
         from database import fertilize_field_db, update_field_decay
 
         # Users can only fertilize their field it is 80% fertilized or less
-        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.username, user_obj.password, persist=False)
+        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.user_id, persist=False)
 
         self.moisture_percent = moisture_after_decay
         self.fertilizer_percent = fertilizer_after_decay
@@ -67,7 +67,7 @@ class Field:
         else:
             self.fertilizer_percent += 20
             print(f"You added fertilzer to your field, its fertilizer percentage is now {self.fertilizer_percent}")
-            fertilize_field_db(user_obj.username, user_obj.password)
+            fertilize_field_db(user_obj.user_id)
 
     
     def plant_crop(self, user_obj, plant_type):
@@ -86,15 +86,12 @@ class Field:
             print("Your field is full, harvest some crops before planting more!")
         else:
             self.num_plants = self.num_plants + 1
-            plant_crop_db(user_obj.username, user_obj.password, plant_type)
+            plant_crop_db(user_obj.user_id, plant_type)
             print(f"You planted a {plant_type} crop in your field! There are now {self.num_plants} in your field.")
 
     def harvest_crop(self, user_obj, planted_crop_id):
         """
         Harvest a fully grown crop
-
-        This method is unfinished, it will be updated as development progresses and when the SQL database is created.
-        Currently, it just decrements the number of plants in the field if it isn't empty.
 
         Args:
             planted_crop_id (int): The id of the crop to be harvested
@@ -106,22 +103,17 @@ class Field:
             print("There are no plants to harvest!")
         else:
             self.num_plants = self.num_plants - 1
-            harvest_crop_db(user_obj.username, user_obj.password, planted_crop_id)
+            harvest_crop_db(user_obj.user_id, planted_crop_id)
 
 
     def get_field_status(self, user_obj):
         from database import get_field_data
         from database import get_planted_crops
 
-
-        username = user_obj.username
-        password = user_obj.password
+        field_data = get_field_data(user_obj.user_id)
 
 
-        field_data = get_field_data(username, password)
-
-
-        crops = get_planted_crops(username, password)
+        crops = get_planted_crops(user_obj.user_id)
 
 
         moisture_percent = field_data['moisture_percent']

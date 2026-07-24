@@ -93,8 +93,8 @@ def display_shop():
                 continue
 
             print(f"You bought a {item_to_buy[1]}")
-            subtract_user_money_db(item_price, curr_user.username, curr_user.password)
-            curr_user.inventory.add_item(curr_user, item_to_buy[1])
+            subtract_user_money_db(item_price, curr_user.user_id)
+            curr_user.inventory.add_item(item_to_buy[1])
             curr_user.money -= item_price
         else:
             print("Enter a valid choice!")
@@ -112,7 +112,7 @@ def is_harvestable(crop_id):
     """
     global curr_user
 
-    update_field_decay(curr_user.username, curr_user.password, persist=True)
+    update_field_decay(curr_user.user_id, persist=True)
     # Get the row corresponding to the crop id
     crop = get_planted_crop(crop_id)
     # User's cannot enter an invalid id
@@ -158,7 +158,7 @@ def visit_field(user_obj):
             print()
         else:
             print(f"{crop['crop_type']} ID: {crop['planted_crop_id']} is still growing!")
-            print(f"Time Remaining (seconds): {crop['time_until_grown']}")
+            print(f"Time Remaining (seconds): {int(crop['time_until_grown'])}")
             print()
 
 
@@ -191,8 +191,8 @@ def harvest_crop_interface():
             test_field.harvest_crop(curr_user, user_input)
 
             seed_name = crop['crop_type'] + " Seed"
-            curr_user.inventory.add_item(curr_user, crop['crop_type'])
-            curr_user.inventory.add_item(curr_user, seed_name)
+            curr_user.inventory.add_item(crop['crop_type'])
+            curr_user.inventory.add_item(seed_name)
         else:
             print("This crop is not ready to be harvested yet!")
 
@@ -233,7 +233,7 @@ def plant_crop_interface(user_obj):
             # Plant the corresponding crop
             test_field.plant_crop(curr_user, plant_type)
             # Remove the seed object
-            curr_user.inventory.remove_item(curr_user, seed['item_name'])
+            curr_user.inventory.remove_item(seed['item_name'])
 
 
 def handle_choice(choice):
@@ -308,14 +308,21 @@ def handle_login_choice(choice_int):
         login_list = get_login_info() # get login credentials
         username = login_list[0]
         password = login_list[1]
-        money = user_sign_in(username, password) # If the login credentials are valid, money >= 0
+
+        login_result = user_sign_in(username, password)
+
+        if login_result is None:
+            print("Invalid login credentials!")
+            return None
+
+        money, user_id = login_result
         
         # Users must enter valid login credentials
-        if (money >= 0):
-            user_inventory = UserInventory(username, password)
+        if (money >= 0 and user_id is not None):
+            user_inventory = UserInventory(user_id)
             user_inventory.load_inventory()
-            curr_user = User(username, password, money, user_inventory)
-            num_planted, moisture_percent, fertilizer_percent  = load_user_field(curr_user.username, curr_user.password)
+            curr_user = User(user_id, username, password, money, user_inventory)
+            num_planted, moisture_percent, fertilizer_percent  = load_user_field(curr_user.user_id)
             test_field = Field(num_planted, moisture_percent, fertilizer_percent)
             return curr_user
         else:
@@ -325,13 +332,14 @@ def handle_login_choice(choice_int):
     # 2 = create account
     elif choice_int == 2:
         login_list = get_login_info() # get [username, pw]
-        user_inventory = UserInventory(login_list[0], login_list[1])
-        user_inventory.load_inventory()
-        curr_user = User(login_list[0], login_list[1], 100, user_inventory)
-        insertion_successful = insert_user_to_db(curr_user.username, curr_user.password, curr_user.money)
-        
-        if insertion_successful:
-            insert_new_user_field(curr_user.username, curr_user.password)
+        username = login_list[0]
+        password = login_list[1]
+        user_id = insert_user_to_db(username, password, 100)
+        if user_id is not None:
+            user_inventory = UserInventory(user_id)
+            user_inventory.load_inventory()
+            curr_user = User(user_id, username, password, 100, user_inventory)
+            insert_new_user_field(curr_user.user_id)
             return curr_user
         else:
             return None

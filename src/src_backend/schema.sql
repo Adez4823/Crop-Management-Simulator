@@ -55,12 +55,12 @@ CREATE TABLE IF NOT EXISTS items (
 
 -- User inventory table
 CREATE TABLE IF NOT EXISTS user_inventories (
-    username VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    user_id INT NOT NULL,
     item_id INT NOT NULL, 
     quantity INT NOT NULL,
 
     -- Ensure that items will stack
-    PRIMARY KEY(username, item_id),
+    PRIMARY KEY(user_id, item_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (item_id) REFERENCES items(item_id) ON DELETE CASCADE
 );

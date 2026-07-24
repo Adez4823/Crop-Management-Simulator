@@ -136,13 +136,15 @@ def insert_user_to_db(username, password, money):
     Inserts a user into the user table of the database
 
     Args:
-        user_obj (User): The user object to be inserted
+        username (str): The username of the user to be inserted
+        password (str): The password of the user to be inserted
+        money (int): The initial amount of money for the user
 
-    Raises:s
+    Raises:
         UniqueViolation: If the username is already taken
     
     Returns:
-        True/False (boolean): True if the user was inserted successfully
+        user_id (int): The ID of the inserted user, or None if insertion failed
 
     """
 
@@ -155,17 +157,20 @@ def insert_user_to_db(username, password, money):
             """
             INSERT INTO users (username, password, money)
             VALUES (%s, %s, %s)
+            RETURNING user_id;
             """,
             (username, password, money)
         )
+        user_id = cur.fetchone()[0]
         conn.commit()
-        print("User sucessfully inserted to DB")
-        return True
+        print("Account successfully created!")
+        return user_id
     # Don't update DB if there's an exception
     except psycopg.errors.UniqueViolation as e:
         conn.rollback()
         print("Username already exists!")
-        return False
+        # None indicates error in creating user (username already exists)
+        return None
 
     finally:
         cur.close()
@@ -183,46 +188,41 @@ def user_sign_in(username, pw):
     
     Returns:
         money    (int): The user's amount of money
+        user_id  (int): The user's unique id in the database
 
     """
     try:
         conn = connect_to_db()
         cur = conn.cursor()
 
-        cur.execute("SELECT money FROM users WHERE username = %s AND password = %s;", (username, pw))
+        cur.execute("SELECT money, user_id FROM users WHERE username = %s AND password = %s;", (username, pw))
 
         user_row = cur.fetchone()
 
         # Users must provide valid login credentials
         if user_row is None:
-            return -1 # -1 signifies credentials not found
+            return None # None signifies credentials not found
         else:
-            money = user_row[0]
-            return money
-    
+            money, user_id = user_row
+            return money, user_id
+
     # Ensure connection is always closed
     finally:
         cur.close()
         conn.close()
 
-def insert_new_user_field(username, password):
+def insert_new_user_field(user_id):
     """
     Create a new entry into the database, containing default values for the user's new field.
 
     This method is used right after account creation in order to initialize a field for the user as well as initialize the planted crops within the field.
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): The ID of the current user
 
     """
     conn = connect_to_db()
     cur = conn.cursor()
-
-    cur.execute("SELECT user_id FROM users WHERE username = %s and password = %s;", (username, password))
-
-    user_row = cur.fetchone()
-    user_id = user_row[0]
 
     # Create default fields entry
     cur.execute("""
@@ -236,28 +236,21 @@ def insert_new_user_field(username, password):
     cur.close()
     conn.close()
 
-def plant_crop_db(username, password, crop_name):
+def plant_crop_db(user_id, crop_name):
     """
     Allows the user to plant a crop by updating the DB
 
     Increments the fields table's num_planted and inserts a row to the crops_planted table
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): The ID of the current user  
         crop_name (str): The name of the crop to be planted
 
     """
-    update_field_decay(username, password, persist=True)
+    update_field_decay(user_id, persist=True)
 
     conn = connect_to_db()
     cur = conn.cursor()
-
-
-    # Get user_id
-    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
-    user_row = cur.fetchone()
-    user_id = user_row[0]
 
     # Get total growth time given the crop name
     cur.execute("SELECT total_growth_time_seconds FROM crop_types WHERE crop_type = %s;", (crop_name,))
@@ -283,13 +276,12 @@ def plant_crop_db(username, password, crop_name):
     cur.close()
     conn.close()
 
-def load_user_field(username, password):
+def load_user_field(user_id):
     """
     Query the database to get the field corresponding to the user
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): Represents the user's unique ID
     
     Returns:
         Field: The field object that corresponds to the current user
@@ -298,11 +290,6 @@ def load_user_field(username, password):
 
     conn = connect_to_db()
     cur = conn.cursor()
-
-    # Get user ID
-    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
-    user_row = cur.fetchone()
-    user_id = user_row[0]
 
     # Get the corresponding field row
     cur.execute("SELECT * FROM fields WHERE user_id = %s;", (user_id,))
@@ -317,12 +304,13 @@ def load_user_field(username, password):
     # Return the data needed to construct the user's field as a tuple
     return num_planted, moisture_percent, fertilizer_percent
 
-def load_inventory_db(username, password):
+def load_inventory_db(user_id):
     """
     Query the database for all items the current user owns
 
     Args:
-        user_id (int): Represents the user's unique ID
+        user_id (int): The ID of the current user
+        password (str): The password of the current user
 
     Returns:
         rows (list[tuple]): Represents the owned items and the quantity of each item
@@ -334,8 +322,8 @@ def load_inventory_db(username, password):
 
     cur.execute("""SELECT user_inventories.item_id, items.item_name, items.item_type, items.rarity, items.buy_price, user_inventories.quantity
                 FROM user_inventories JOIN items ON items.item_id = user_inventories.item_id
-                WHERE user_inventories.username = %s AND user_inventories.password = %s
-            """, (username, password))
+                WHERE user_inventories.user_id = %s;
+            """, (user_id,))
 
     rows = cur.fetchall()
 
@@ -408,15 +396,14 @@ def get_item_definition(item_name):
 
     return item_row
 
-def add_item_inventory_db(username, password, item_name):
+def add_item_inventory_db(user_id, item_name):
     """
     Allows the user to buy items
 
     Adds an item to the user's inventory in the database
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): The ID of the current user
         item_name (str): The name of the item that is to be added to the user's inventory
 
     Raises:
@@ -427,34 +414,33 @@ def add_item_inventory_db(username, password, item_name):
 
     item_id = get_item_id(item_name)
 
-    cur.execute("SELECT * FROM user_inventories WHERE username = %s AND password = %s AND item_id = %s", (username, password, item_id))
+    cur.execute("SELECT * FROM user_inventories WHERE user_id = %s AND item_id = %s", (user_id, item_id))
 
     if cur.fetchone():
         # Increment item in the player's inventory if they already have it
         cur.execute("""UPDATE user_inventories 
-                    SET quantity = quantity + %s WHERE item_id = %s AND username = %s AND password = %s;
-                    """, (1, item_id, username, password))
+                    SET quantity = quantity + %s WHERE item_id = %s AND user_id = %s;
+                    """, (1, item_id, user_id))
     else:
         # The player doesn't have this item, insert a new row
         cur.execute("""INSERT INTO user_inventories
-                        (username, password, item_id, quantity) 
+                        (user_id, item_id, quantity) 
                         VALUES 
-                            (%s, %s, %s, %s);
-                    """, (username, password, item_id, 1))
+                        (%s, %s, %s);
+                    """, (user_id, item_id, 1))
 
     conn.commit()
     cur.close()
     conn.close()
 
-def remove_item_inventory_db(username, password, item_name):
+def remove_item_inventory_db(user_id, item_name):
     """
-    Allows the user to remmove items
+    Allows the user to remove items
 
-    Removes an item to the user's inventory in the database
+    Removes an item from the user's inventory in the database
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): The ID of the current user
         item_name (str): The name of the item that is to be removed from the user's inventory
 
     Raises:
@@ -465,7 +451,7 @@ def remove_item_inventory_db(username, password, item_name):
 
     item_id = get_item_id(item_name)
 
-    cur.execute("SELECT * FROM user_inventories WHERE username = %s AND password = %s AND item_id = %s", (username, password, item_id))
+    cur.execute("SELECT * FROM user_inventories WHERE user_id = %s AND item_id = %s", (user_id, item_id))
 
     inventory_row = cur.fetchone()
 
@@ -475,37 +461,31 @@ def remove_item_inventory_db(username, password, item_name):
     # Decrement item if the user has more than 1 of the item
     if inventory_row['quantity'] > 1:
         cur.execute("""UPDATE user_inventories 
-                    SET quantity = quantity - %s WHERE item_id = %s AND username = %s AND password = %s;
-                    """, (1, item_id, username, password))
+                    SET quantity = quantity - %s WHERE item_id = %s AND user_id = %s;
+                    """, (1, item_id, user_id))
     # Delete the item row if the user only has one of the item
     else:
-        cur.execute("DELETE FROM user_inventories WHERE item_id = %s AND username = %s AND password = %s;", (item_id, username, password))
+        cur.execute("DELETE FROM user_inventories WHERE item_id = %s AND user_id = %s;", (item_id, user_id))
 
     conn.commit()
     cur.close()
     conn.close()
 
-def harvest_crop_db(username, password, planted_crop_id):
+def harvest_crop_db(user_id, planted_crop_id):
     """
     Allows the user to harvest a crop by updating the DB
 
     Decrements the fields table's num_planted and deletes the corresponding row in the crops_planted table
 
     Args:
-        username        (str): Current user's username
-        password        (str): Current user's password
+        user_id (int): The ID of the current user
         planted_crop_id (int): The id of the crop to be planted
 
     """
     conn = connect_to_db()
     cur = conn.cursor()
 
-    update_field_decay(username, password, persist=True)
-
-    # Get user_id
-    cur.execute("SELECT user_id FROM users WHERE username = %s AND password = %s;", (username, password))
-    user_row = cur.fetchone()
-    user_id = user_row[0]   
+    update_field_decay(user_id, persist=True)
 
     # Decrement num_planted in the player's field and get field_id
     cur.execute("""UPDATE fields 
@@ -554,20 +534,19 @@ def select_random_items(num_items):
 
     return rows
 
-def subtract_user_money_db(amount, username, password):
+def subtract_user_money_db(amount, user_id):
     """
     Subtracts an amount of money from the user's row in the database
 
     Args:
         amount   (int): The value to subtract
-        username (str): The string representing the current user's name
-        password (str): The string representing the current user's passwor
+        user_id (int): The ID of the current user
     """
     conn = connect_to_db()
     cur = conn.cursor()
 
-    cur.execute("UPDATE users SET money = money - %s WHERE username = %s AND password = %s;", 
-                (amount, username, password))
+    cur.execute("UPDATE users SET money = money - %s WHERE user_id = %s;", 
+                (amount, user_id))
 
     conn.commit()
     cur.close()
@@ -576,6 +555,8 @@ def subtract_user_money_db(amount, username, password):
 def get_user_id(username, password):
     """
     Obtain the user's id in the db
+
+    This method is currently obsolete, as the user_id is now returned upon login. It is still used in some places for convenience.
 
     Args:
         username (str): The username of the current user
@@ -596,13 +577,12 @@ def get_user_id(username, password):
     return id
 
 
-def water_field_db(username, password):
+def water_field_db(user_id):
     """
     Water the user's field by updating their moisture percentage
     
     """
-    update_field_decay(username, password, persist=True)
-    user_id = get_user_id(username, password)
+    update_field_decay(user_id, persist=True)
 
     conn = connect_to_db()
     cur = conn.cursor()
@@ -613,15 +593,14 @@ def water_field_db(username, password):
     cur.close()
     conn.close()
 
-    update_field_death_time(username, password)
+    update_field_death_time(user_id)
 
-def fertilize_field_db(username, password):
+def fertilize_field_db(user_id):
     """
     Fertilize the user's field by updating their fertilizer percentage
     
     """
-    update_field_decay(username, password, persist=True)
-    user_id = get_user_id(username, password)
+    update_field_decay(user_id, persist=True)
 
     conn = connect_to_db()
     cur = conn.cursor()
@@ -632,21 +611,19 @@ def fertilize_field_db(username, password):
     cur.close()
     conn.close()
 
-    update_field_death_time(username, password)
+    update_field_death_time(user_id)
 
-def get_field_id(username, password):
+def get_field_id(user_id):
     """
     Obtain the user's field id
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
-    
+        user_id (int): The ID of the current user
+
     Returns:
         int: representing the user's field id
 
     """
-    user_id = get_user_id(username, password)
 
     conn = connect_to_db()
     cur = conn.cursor()
@@ -660,17 +637,16 @@ def get_field_id(username, password):
 
     return field_id
 
-def get_planted_crops(username, password):
+def get_planted_crops(user_id):
     """
     Get the info of all the user's current planted crops
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): The ID of the current user
 
     """
 
-    field_id = get_field_id(username, password)
+    field_id = get_field_id(user_id)
     
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
@@ -691,22 +667,20 @@ def get_planted_crops(username, password):
 
     return rows
 
-def update_field_decay(username, password, persist=True):
+def update_field_decay(user_id, persist=True):
     """
     Obtain the moisture and fertilizer conditions of the current user
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): The ID of the current user
         persist  (bool): True for updating, False to get updated moisture/fertilizer levels
     """
 
     global moisture_decay_rate
     global fertilizer_decay_rate
-    user_id = get_user_id(username, password)
-    field_id = get_field_id(username, password) 
+    field_id = get_field_id(user_id) 
 
-    field_row = get_field_moisture_fertilizer(username, password)
+    field_row = get_field_moisture_fertilizer(user_id)
 
     moisture_percent = field_row['moisture_percent']
     fertilizer_percent = field_row['fertilizer_percent']
@@ -764,19 +738,16 @@ def update_field_decay(username, password, persist=True):
     conn.close()
 
 
-def get_field_moisture_fertilizer(username, password):
+def get_field_moisture_fertilizer(user_id):
     """
     Obtain the moisture and fertilizer conditions of the current user
 
     Args:
-        username (str): The username of the current user
-        password (str): The password of the current user
+        user_id (int): The ID of the current user
 
     Returns:
         tuple: The tuple (moisture, fertilizer,) representing the user's field
     """
-    
-    user_id = get_user_id(username, password)
 
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
@@ -816,20 +787,18 @@ def get_planted_crop(crop_id):
 
     return row
 
-def get_last_updated(username, password):
+def get_last_updated(user_id):
     """
     Get the last_updated date for the user's field
 
     Args:
-        username (str): The user's username that was inputted to the login interface
-        password (str): The user's password that was inputted to the login interface
+        user_id (int): The ID of the current user
 
     Returns:
         datetime: The datetime object that represents the field's last update time
 
     """
 
-    user_id = get_user_id(username, password)
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
 
@@ -876,15 +845,14 @@ def get_seed_item(item_id):
 
         return item_row
     
-def get_field_data(username, password):
+def get_field_data(user_id):
     """
     Gets all data relating to a user's field
 
 
     Args:
-        username (str): The user's username that was inputted to the login interface
-        password (str): The user's password that was inputted to the login interface
-   
+        user_id (int): The ID of the current user
+
     Returns:
         dict: The dict representing the user's field
 
@@ -894,10 +862,6 @@ def get_field_data(username, password):
 
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
-
-
-    user_id = get_user_id(username, password)
-
 
     cur.execute("""SELECT moisture_percent, fertilizer_percent, last_updated, date_until_no_growth
                     FROM fields
@@ -918,19 +882,16 @@ def get_field_data(username, password):
 
     return field_data
 
-def update_field_death_time(username, password):
+def update_field_death_time(user_id):
     """
     calculate and update the time_until_no_growth of a user's field
 
     Args:
-        username (str): The user's username that was inputted to the login interface
-        pw       (str): The user's password that was inputted to the login interface
+        user_id (int): The ID of the current user
 
     """
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
-
-    user_id = get_user_id(username, password)
 
     cur.execute("""SELECT moisture_percent, fertilizer_percent, last_updated
                     FROM fields

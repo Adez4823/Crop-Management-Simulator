@@ -9,8 +9,11 @@ class User:
         inventory (UserInventory): Represents the user's inventory
 
     """
-    def __init__(self, username='default', password='default', money=100, inventory=None):
+    def __init__(self, user_id, username='default', password='default', money=100, inventory=None):
+            self.user_id = user_id
             self.username = username
             self.password = password
             self.money = money
             self.inventory = inventory
+
+    
