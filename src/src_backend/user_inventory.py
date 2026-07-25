@@ -70,6 +70,7 @@ class UserInventory:
         Prints the user's inventory to the terminal
 
         """
+        print(f"==== {self.user_id.upper()}'S INVENTORY ====")
         items = load_inventory_db(self.user_id)
 
         # Cannot load an empty inventory
@@ -79,13 +80,14 @@ class UserInventory:
             for item in items:
                 print(f"{item['item_name']}: {item['quantity']} owned. ({item['rarity']})")
 
-    def display_seeds(self):
+    def display_seeds(self, planting_seeds=False):
         """
         Displays all items that are of type 'Seed' in the user's inventory
 
         """
 
-        counter = 0
+        counter = 1
+        item_id_arr = []
         items = load_inventory_db(self.user_id)
 
         # Cannot load an empty inventory
@@ -95,12 +97,16 @@ class UserInventory:
         # Print out all items of type 'Seed'
         for item in items:
             if item['item_type'] == 'Seed':
-                print(f"{item['item_name']} (ID: {item['item_id']}): {item['quantity']} owned. ({item['rarity']})")
+                item_id_arr.append(item['item_id'])
+                print(f"{counter}. {item['item_name']}: {item['quantity']} owned. ({item['rarity']})")
                 counter += 1
 
         # If no seeds are found, let the user know
-        if counter == 0:
+        if counter == 1:
             print("You don't have any seeds!")
+
+        if planting_seeds:
+            return item_id_arr
 
     def remove_item(self, name_item):
         """

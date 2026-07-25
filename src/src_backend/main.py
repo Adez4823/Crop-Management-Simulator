@@ -64,6 +64,8 @@ def display_shop():
     shopping = True
     num_items_in_shop = 3
     counter = 1
+
+    print()
     print("==== FARMERS MARKET ====")
     print("Shopkeeper: This is the current selection of items")
     rows = select_random_items(num_items_in_shop)
@@ -152,8 +154,8 @@ def visit_field(user_obj, harvesting_crop=False):
 
     field_status = test_field.get_field_status(user_obj)
 
-
-    print(f"Your field: ")
+    print()
+    print(f"== VISITING {user_obj.username.upper()}'S FIELD ==")
     print(f"Moisture: {int(field_status['moisture'])} Fertilizer: {int(field_status['fertilizer'])}")
     print()
 
@@ -232,14 +234,18 @@ def plant_crop_interface(user_obj):
     global curr_user
     global test_field
 
+    print()
+    print("==== PLANTING INTERFACE ====")
+    print("This is your current inventory of seeds:")
+
     planting = True
     while planting:
-        curr_user.inventory.display_seeds()
+        seed_id_arr =curr_user.inventory.display_seeds(planting_seeds=True)
 
         print("0. Exit")
         # User's must enter in a valid seed id
         try:
-            user_input = int(input("Which seed would you like to plant (enter ID): "))
+            user_input = int(input("Which seed would you like to plant (enter seed #): "))
         except ValueError:
             print("Enter a valid choice!")
             continue
@@ -249,7 +255,8 @@ def plant_crop_interface(user_obj):
             planting = False
             return
         else:
-            seed = get_seed_item(user_input)
+            item_id = seed_id_arr[user_input - 1]
+            seed = get_seed_item(item_id)
             if not seed:
                 print("Enter a valid choice!")
                 return
