@@ -62,10 +62,11 @@ def display_shop():
     global curr_user
 
     shopping = True
+    num_items_in_shop = 3
     counter = 1
     print("==== FARMERS MARKET ====")
     print("Shopkeeper: This is the current selection of items")
-    rows = select_random_items(3)
+    rows = select_random_items(num_items_in_shop)
     while shopping:
         print(f"You currently have ${curr_user.money}")
         counter = 1
@@ -88,7 +89,7 @@ def display_shop():
             shopping = False
             break
         # Users must enter a valid choice
-        elif shop_choice > 0 and shop_choice <= 3:
+        elif shop_choice > 0 and shop_choice <= num_items_in_shop:
             item_to_buy = rows[shop_choice - 1]
             item_price = item_to_buy[4]
             # Users aren't able to buy an item they can't afford
@@ -109,6 +110,7 @@ def is_harvestable(crop_id):
 
     Args:
         crop_id (int): The id that corresponds to the planted crop
+        crop_id_arr (array): The array containing all the planted crop ids in the user's field
 
     Returns:
         boolean: True if crop is ready to harvest
@@ -133,7 +135,7 @@ def is_harvestable(crop_id):
         return True
     return False
 
-def visit_field(user_obj):
+def visit_field(user_obj, harvesting_crop=False):
     """
     Allows the user to visit their field
 
@@ -155,16 +157,25 @@ def visit_field(user_obj):
     print(f"Moisture: {int(field_status['moisture'])} Fertilizer: {int(field_status['fertilizer'])}")
     print()
 
+    counter = 1
+    crop_id_arr = []
 
     for crop in field_status['crops']:
+        # Store the crop id in an array
+        crop_id_arr.append(crop['planted_crop_id'])
+
         if crop['ready_to_harvest']:
-            print(f"{crop['crop_type']} ID: {crop['planted_crop_id']} is ready to harvest!")
+            print(f"{counter}. {crop['crop_type']} is ready to harvest!")
             print()
+            counter += 1
         else:
-            print(f"{crop['crop_type']} ID: {crop['planted_crop_id']} is still growing!")
+            print(f"{counter}. {crop['crop_type']} is still growing!")
             print(f"Time Remaining (seconds): {int(crop['time_until_grown'])}")
             print()
+            counter += 1
 
+    if harvesting_crop:
+        return crop_id_arr
 
 
 def harvest_crop_interface():
@@ -176,13 +187,16 @@ def harvest_crop_interface():
     global test_field
     global curr_user
 
+    # Obtain the crop id array from the visit_field method
+    crop_id_arr = visit_field(curr_user, harvesting_crop=True)
+
     harvesting = True
     while harvesting:
         print("Enter 0 to exit.")
         try:
-            user_input = int(input("Enter a crop's ID to harvest it: "))
+            user_input = int(input("Enter the crop # to harvest it: "))
         except ValueError:
-            print("Enter a valid ID/choice!")
+            print("Enter a valid choice!")
             continue
         
         if user_input == 0:
@@ -190,9 +204,15 @@ def harvest_crop_interface():
             harvesting = False
             return
         
-        if is_harvestable(user_input):
-            crop = get_planted_crop(user_input)
-            test_field.harvest_crop(curr_user, user_input)
+        try:
+            crop_id_corresponding_to_input = crop_id_arr[user_input - 1]
+        except IndexError:
+            print("Enter a valid choice!")
+            continue
+
+        if is_harvestable(crop_id_corresponding_to_input):
+            crop = get_planted_crop(crop_id_corresponding_to_input)
+            test_field.harvest_crop(curr_user, crop_id_corresponding_to_input)
 
             seed_name = crop['crop_type'] + " Seed"
             curr_user.inventory.add_item(crop['crop_type'])
@@ -264,7 +284,6 @@ def handle_choice(choice):
     elif choice_int == 3:
         plant_crop_interface(curr_user)
     elif choice_int == 4:
-        visit_field(curr_user)
         harvest_crop_interface()
     elif choice_int == 5:
         display_shop()

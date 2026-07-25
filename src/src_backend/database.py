@@ -439,7 +439,13 @@ def harvest_crop_db(user_id, planted_crop_id):
                 RETURNING field_id;""", (1, user_id))
     
     field_id = cur.fetchone()[0]
-    
+
+    if field_id is None:
+        print("Error: Field not found for user.")
+        cur.close()
+        conn.close()
+        return
+   
     # Delete corresponding planted_crops table
     cur.execute("""
         DELETE FROM planted_crops
