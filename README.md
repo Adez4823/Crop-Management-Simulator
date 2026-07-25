@@ -6,9 +6,7 @@ Current status:
 Login/signup implemented
 
 Feature roadmap: (To be implemented)<br>
-Game features (plant crops, harvest crops, etc)<br>
-Real world weather data will be used within the game through the use of a weather API.<br>
-Interactive GUI that will be ran in docker.
+Interactive React frontend
 
 ## Requirements:
 Python 3.14+<br>
