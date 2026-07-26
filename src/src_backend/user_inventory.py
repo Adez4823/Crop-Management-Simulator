@@ -70,7 +70,7 @@ class UserInventory:
         Prints the user's inventory to the terminal
 
         """
-        print(f"==== {self.user_id.upper()}'S INVENTORY ====")
+        print(f"==== INVENTORY ====")
         items = load_inventory_db(self.user_id)
 
         # Cannot load an empty inventory

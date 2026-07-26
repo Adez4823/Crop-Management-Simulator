@@ -155,7 +155,7 @@ def visit_field(user_obj, harvesting_crop=False):
     field_status = test_field.get_field_status(user_obj)
 
     print()
-    print(f"== VISITING {user_obj.username.upper()}'S FIELD ==")
+    print(f"== VISITING FIELD ==")
     print(f"Moisture: {int(field_status['moisture'])} Fertilizer: {int(field_status['fertilizer'])}")
     print()
 
