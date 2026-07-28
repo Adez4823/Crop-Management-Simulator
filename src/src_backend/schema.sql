@@ -64,3 +64,15 @@ CREATE TABLE IF NOT EXISTS user_inventories (
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (item_id) REFERENCES items(item_id) ON DELETE CASCADE
 );
+
+-- Shop items table
+CREATE TABLE IF NOT EXISTS shop_items (
+    item_id INT NOT NULL, 
+    item_name VARCHAR(32) NOT NULL,
+    item_type VARCHAR(32) NOT NULL, 
+    rarity VARCHAR(32) NOT NULL, 
+    buy_price INT NOT NULL, 
+    last_updated TIMESTAMPTZ,
+    PRIMARY KEY(item_id),
+    FOREIGN KEY (item_id) REFERENCES items(item_id) ON DELETE CASCADE
+);

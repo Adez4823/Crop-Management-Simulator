@@ -63,7 +63,7 @@ def create_tables():
                 (3, 'Corn Seed', 'Seed', 'Uncommon', 20),
                 (4, 'Celery Seed', 'Seed', 'Uncommon', 20),
                 (5, 'Beans Seed', 'Seed', 'Uncommon', 20),
-                (6, 'Brussel Sprout Seed', 'Seed', 'Rare', 20),
+                (6, 'Brussel Sprouts Seed', 'Seed', 'Rare', 20),
                 (7, 'Potato', 'Crop', 'Common', 50),
                 (8, 'Leek', 'Crop', 'Common', 20),
                 (9, 'Corn', 'Crop', 'Uncommon', 20),
@@ -109,12 +109,10 @@ def insert_user_to_db(username, password, money):
         )
         user_id = cur.fetchone()[0]
         conn.commit()
-        print("Account successfully created!")
         return user_id
     # Don't update DB if there's an exception
     except psycopg.errors.UniqueViolation as e:
         conn.rollback()
-        print("Username already exists!")
         # None indicates error in creating user (username already exists)
         return None
 
@@ -198,6 +196,23 @@ def plant_crop_db(user_id, crop_name):
     conn = connect_to_db()
     cur = conn.cursor()
 
+    cur.execute("SELECT item_id FROM items WHERE item_name = %s AND item_type = 'Seed';", (crop_name,))
+    item_id = cur.fetchone()[0]
+
+    cur.execute("SELECT quantity FROM user_inventories WHERE user_id = %s AND item_id = %s;", (user_id, item_id))
+    quantity = cur.fetchone()[0]
+
+    if quantity <= 0:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "NO_SEEDS",
+                "message": f"You don't have any {crop_name} seeds to plant!"
+            }
+        }
+
     # Get total growth time given the crop name
     cur.execute("SELECT total_growth_time_seconds FROM crop_types WHERE crop_type = %s;", (crop_name,))
     crop_row = cur.fetchone()
@@ -222,6 +237,11 @@ def plant_crop_db(user_id, crop_name):
     cur.close()
     conn.close()
 
+    return {
+        "ok": True
+    }
+
+
 def load_user_field(user_id):
     """
     Query the database to get the field corresponding to the user
@@ -240,6 +260,7 @@ def load_user_field(user_id):
     # Get the corresponding field row
     cur.execute("SELECT * FROM fields WHERE user_id = %s;", (user_id,))
     field_row = cur.fetchone()
+    field_id = field_row[0]
     num_planted = field_row[2]
     moisture_percent = field_row[3]
     fertilizer_percent = field_row[4]
@@ -248,7 +269,7 @@ def load_user_field(user_id):
     conn.close()
 
     # Return the data needed to construct the user's field as a tuple
-    return num_planted, moisture_percent, fertilizer_percent
+    return field_id, num_planted, moisture_percent, fertilizer_percent
 
 def load_inventory_db(user_id):
     """
@@ -299,9 +320,10 @@ def get_item_id(item_name):
     item_row = cur.fetchone()
 
     if not item_row:
-        cur.close()
-        conn.close()
-        raise ValueError(f"Item '{item_name}' not found in items table.")
+        return None
+        #cur.close()
+        #conn.close()
+        #raise ValueError(f"Item '{item_name}' not found in items table.")
     
     else:
         item_id = item_row[0]
@@ -360,6 +382,16 @@ def add_item_inventory_db(user_id, item_name):
 
     item_id = get_item_id(item_name)
 
+    if not item_id:
+        return {
+            "ok": False,
+            "error": {
+                "code": "ITEM_NOT_FOUND",
+                "message": f"Item '{item_name}' does not exist."
+            }
+        }
+
+
     cur.execute("SELECT * FROM user_inventories WHERE user_id = %s AND item_id = %s", (user_id, item_id))
 
     if cur.fetchone():
@@ -379,6 +411,10 @@ def add_item_inventory_db(user_id, item_name):
     cur.close()
     conn.close()
 
+    return {
+        "ok": True
+    }
+
 def remove_item_inventory_db(user_id, item_name):
     """
     Allows the user to remove items
@@ -397,13 +433,27 @@ def remove_item_inventory_db(user_id, item_name):
 
     item_id = get_item_id(item_name)
 
+    if not item_id:
+        return {
+            "ok": False,
+            "error": {
+                "code": "ITEM_NOT_FOUND",
+                "message": f"Item '{item_name}' not found in items table."
+            }
+        }
+
     cur.execute("SELECT * FROM user_inventories WHERE user_id = %s AND item_id = %s", (user_id, item_id))
 
     inventory_row = cur.fetchone()
 
     if not inventory_row:
-        print("You don't own this item!")
-        return
+        return {
+            "ok": False,
+            "error": {
+                "code": "ITEM_NOT_OWNED",
+                "message": f"You don't own any {item_name}s!"
+            }
+        }
     # Decrement item if the user has more than 1 of the item
     if inventory_row['quantity'] > 1:
         cur.execute("""UPDATE user_inventories 
@@ -416,6 +466,10 @@ def remove_item_inventory_db(user_id, item_name):
     conn.commit()
     cur.close()
     conn.close()
+
+    return {
+        "ok": True
+    }
 
 def harvest_crop_db(user_id, planted_crop_id):
     """
@@ -461,25 +515,55 @@ def harvest_crop_db(user_id, planted_crop_id):
     cur.close()
     conn.close() 
 
+
 def select_random_items(num_items):
     """
-    Select x random rows from the items table
+    Select x random rows from the items table for the shop
 
     Args:
         num_items (int): number of items to select
 
     Returns:
-        List[tuple]: a list of tuples representing each item
+        dict: A list of dictionaries representing the selected items
 
     """
     conn = connect_to_db()
-    cur = conn.cursor()
+    cur = conn.cursor(row_factory=dict_row)
 
-    cur.execute("SELECT * FROM items ORDER BY RANDOM() LIMIT %s;", (num_items,))
-    rows = cur.fetchall()
+    cur.execute("SELECT last_updated FROM shop_items;")
+    row = cur.fetchone()
 
-    if not rows:
-        print("No items exist! (DB error)")
+    if not row:
+        last_updated = None
+    else:
+        last_updated = row['last_updated']
+
+    now = datetime.now(timezone.utc)
+
+    if last_updated is None or now >= last_updated + timedelta(hours=24):
+        # Refresh the shop items if last_updated is None or more than 24 hours have passed
+        cur.execute("DELETE FROM shop_items;")
+
+        cur.execute("SELECT * FROM items ORDER BY RANDOM() LIMIT %s;", (num_items,))
+        rows = cur.fetchall()
+
+        if not rows:
+            return None
+
+        for item in rows:
+            item_id = item['item_id']
+            item_name = item['item_name']
+            item_type = item['item_type']
+            rarity = item['rarity']
+            buy_price = item['buy_price']
+
+            cur.execute("INSERT INTO shop_items (item_id, item_name, item_type, rarity, buy_price) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;", (item_id, item_name, item_type, rarity, buy_price))
+        cur.execute("UPDATE shop_items SET last_updated = %s;", (now,))
+        conn.commit()
+    else:
+        # If the shop was refreshed within the last 24 hours, just return the existing items
+        cur.execute("SELECT item_id, item_name, item_type, rarity, buy_price FROM shop_items;")
+        rows = cur.fetchall()
 
     cur.close()
     conn.close()
@@ -497,12 +581,44 @@ def subtract_user_money_db(amount, user_id):
     conn = connect_to_db()
     cur = conn.cursor()
 
-    cur.execute("UPDATE users SET money = money - %s WHERE user_id = %s;", 
+    cur.execute("SELECT money FROM users WHERE user_id = %s;", (user_id,))
+    current_money = cur.fetchone()[0]
+
+    if current_money is None:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found in the database."
+            }
+        }
+    elif current_money < amount:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "INSUFFICIENT_FUNDS",
+                "message": "You don't have enough money to buy this item."
+            }
+        }
+
+    cur.execute("UPDATE users SET money = money - %s WHERE user_id = %s RETURNING money;", 
                 (amount, user_id))
+    new_money = cur.fetchone()['money']
 
     conn.commit()
     cur.close()
     conn.close()
+
+    return {
+        "ok": True,
+        "data": {
+            "remaining_money": new_money
+        }
+    }
 
 def get_user_id(username, password):
     """
@@ -816,19 +932,13 @@ def get_field_data(user_id):
     conn = connect_to_db()
     cur = conn.cursor(row_factory=dict_row)
 
-    cur.execute("""SELECT moisture_percent, fertilizer_percent, last_updated, date_until_no_growth
+    cur.execute("""SELECT field_id, num_planted,moisture_percent, fertilizer_percent, last_updated, date_until_no_growth
                     FROM fields
                     WHERE  user_id = %s;""",
                     (user_id,))
    
     field_data = cur.fetchone()
 
-
-    if not field_data:
-        print("This user does not have a field!")
-        return
-   
-   
     cur.close()
     conn.close()
 
@@ -875,4 +985,3 @@ def update_field_death_time(user_id):
     conn.commit()
     cur.close()
     conn.close()
-

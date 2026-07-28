@@ -73,7 +73,7 @@ def display_shop():
         print(f"You currently have ${curr_user.money}")
         counter = 1
         for row in rows:
-            print(f"{counter}: {row[1]} ${row[4]} (Rarity: {row[3]})")
+            print(f"{counter}: {row['item_name']} ${row['buy_price']} (Rarity: {row['rarity']})")
             counter += 1
         
         print("0: Exit shop")
@@ -93,15 +93,15 @@ def display_shop():
         # Users must enter a valid choice
         elif shop_choice > 0 and shop_choice <= num_items_in_shop:
             item_to_buy = rows[shop_choice - 1]
-            item_price = item_to_buy[4]
+            item_price = item_to_buy['item_price']
             # Users aren't able to buy an item they can't afford
             if curr_user.money < item_price:
                 print("You don't have enough money to buy this item")
                 continue
 
-            print(f"You bought a {item_to_buy[1]}")
+            print(f"You bought a {item_to_buy['item_name']}")
             subtract_user_money_db(item_price, curr_user.user_id)
-            curr_user.inventory.add_item(item_to_buy[1])
+            curr_user.inventory.add_item(item_to_buy['item_name'])
             curr_user.money -= item_price
         else:
             print("Enter a valid choice!")
@@ -214,7 +214,7 @@ def harvest_crop_interface():
 
         if is_harvestable(crop_id_corresponding_to_input):
             crop = get_planted_crop(crop_id_corresponding_to_input)
-            test_field.harvest_crop(curr_user, crop_id_corresponding_to_input)
+            test_field.harvest_crop(curr_user.user_id, crop_id_corresponding_to_input)
 
             seed_name = crop['crop_type'] + " Seed"
             curr_user.inventory.add_item(crop['crop_type'])
@@ -262,7 +262,7 @@ def plant_crop_interface(user_obj):
                 return
             plant_type = seed['item_name'].replace(" Seed", "") 
             # Plant the corresponding crop
-            test_field.plant_crop(curr_user, plant_type)
+            test_field.plant_crop(curr_user.user_id, plant_type)
             # Remove the seed object
             curr_user.inventory.remove_item(seed['item_name'])
 
@@ -285,7 +285,7 @@ def handle_choice(choice):
         curr_user.logout()
         print("Exiting...")
     elif choice_int == 1:
-        test_field.water_field(curr_user)
+        test_field.water_field(curr_user.user_id)
     elif choice_int == 2:
         test_field.fertilize_field(curr_user)
     elif choice_int == 3:
@@ -354,8 +354,8 @@ def handle_login_choice(choice_int):
             user_inventory = UserInventory(user_id)
             user_inventory.load_inventory()
             curr_user = User(user_id, username, password, money, user_inventory)
-            num_planted, moisture_percent, fertilizer_percent  = load_user_field(curr_user.user_id)
-            test_field = Field(num_planted, moisture_percent, fertilizer_percent)
+            field_id, num_planted, moisture_percent, fertilizer_percent  = load_user_field(curr_user.user_id)
+            test_field = Field(field_id, num_planted, moisture_percent, fertilizer_percent)
             return curr_user
         else:
             print("Invalid login credentials!")

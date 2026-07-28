@@ -8,18 +8,20 @@ class Field:
     Contains information on the player's field and allows the user to manage their field's condition.
 
     Attributes:
+        field_id (int): The id of the field in the database.
         num_plants (int): The number of crops planted in the field.
         moisture_percent (int): Represents the how wet/dry the field is as a percentage.
         fertilizer_percent (int): Represents how fertilized the field is as a percentage
 
     """
 
-    def __init__(self, num_plants=0, moisture_percent=0, fertilizer_percent=0):
+    def __init__(self, field_id, num_plants=0, moisture_percent=0, fertilizer_percent=0):
+        self.field_id = field_id
         self.num_plants = num_plants
         self.moisture_percent = moisture_percent
         self.fertilizer_percent = fertilizer_percent
 
-    def water_field(self, user_obj):
+    def water_field(self, user_id):
         """
         Add water to the field.
 
@@ -33,7 +35,7 @@ class Field:
         from database import water_field_db, update_field_decay
 
 
-        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.user_id, persist=False)
+        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_id, persist=False)
 
         self.moisture_percent = moisture_after_decay
         self.fertilizer_percent = fertilizer_after_decay
@@ -43,9 +45,9 @@ class Field:
         else:
             self.moisture_percent += 10
             print(f"You watered your field, its moisture content is now {self.moisture_percent}")
-            water_field_db(user_obj.user_id)
+            water_field_db(user_id)
 
-    def fertilize_field(self, user_obj):
+    def fertilize_field(self, user_id):
         """
         Add fertilizer to the field.
 
@@ -57,7 +59,7 @@ class Field:
         from database import fertilize_field_db, update_field_decay
 
         # Users can only fertilize their field it is 80% fertilized or less
-        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_obj.user_id, persist=False)
+        moisture_after_decay, fertilizer_after_decay = update_field_decay(user_id, persist=False)
 
         self.moisture_percent = moisture_after_decay
         self.fertilizer_percent = fertilizer_after_decay
@@ -67,7 +69,7 @@ class Field:
         else:
             self.fertilizer_percent += 20
             print(f"You added fertilzer to your field, its fertilizer percentage is now {self.fertilizer_percent}")
-            fertilize_field_db(user_obj.user_id)
+            fertilize_field_db(user_id)
 
     
     def plant_crop(self, user_obj, plant_type):
@@ -89,7 +91,7 @@ class Field:
             plant_crop_db(user_obj.user_id, plant_type)
             print(f"You planted a {plant_type} crop in your field! There are now {self.num_plants} in your field.")
 
-    def harvest_crop(self, user_obj, planted_crop_id):
+    def harvest_crop(self, user_id, planted_crop_id):
         """
         Harvest a fully grown crop
 
@@ -103,17 +105,17 @@ class Field:
             print("There are no plants to harvest!")
         else:
             self.num_plants = self.num_plants - 1
-            harvest_crop_db(user_obj.user_id, planted_crop_id)
+            harvest_crop_db(user_id, planted_crop_id)
 
 
-    def get_field_status(self, user_obj):
+    def get_field_status(self, user_id):
         from database import get_field_data
         from database import get_planted_crops
 
-        field_data = get_field_data(user_obj.user_id)
+        field_data = get_field_data(user_id)
 
 
-        crops = get_planted_crops(user_obj.user_id)
+        crops = get_planted_crops(user_id)
 
 
         moisture_percent = field_data['moisture_percent']

@@ -1,6 +1,7 @@
 CURRENT_CITY = "Seattle"
 MOISTURE_DECAY_RATE = 0.05
 FERTILIZER_DECAY_RATE = 0.01
+NUM_ITEMS_IN_SHOP = 3
 
 def set_moisture_decay_rate(decay_rate):
     if decay_rate < 0:
