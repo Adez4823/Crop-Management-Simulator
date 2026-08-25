@@ -1,5 +1,3 @@
-from database import insert_user_to_db, user_sign_in
-
 from database import insert_user_to_db, user_sign_in, insert_new_user_field, load_user_field
 
 DEFAULT_STARTING_MONEY = 100

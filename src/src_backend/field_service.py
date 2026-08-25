@@ -184,17 +184,6 @@ def plant_crop(user_id, crop_type):
             }
         }
 
-    remove_seed_result = remove_item_inventory_db(user_id, crop_type + " Seed")
-
-    if not remove_seed_result["ok"]:
-        return {
-            "ok": False,
-            "error": {
-                "code": remove_seed_result["error"]["code"],
-                "message": remove_seed_result["error"]["message"]
-            }
-        }
-
     return {
         "ok": True,
         "data": {
@@ -236,7 +225,15 @@ def harvest_crop(user_id, planted_crop_id):
                     }
                 }
             else:
-                harvest_crop_db(user_id, planted_crop_id)
+                harvest_response = harvest_crop_db(user_id, planted_crop_id)
+                if not harvest_response["ok"]:
+                    return {
+                        "ok": False,
+                        "error": {
+                            "code": harvest_response["error"]["code"],
+                            "message": harvest_response["error"]["message"]
+                        }
+                    }
                 add_item_inventory_db(user_id, crop['crop_type'])
                 add_item_inventory_db(user_id, crop['crop_type'] + ' Seed')
                 return {

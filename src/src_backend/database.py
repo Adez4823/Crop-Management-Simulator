@@ -194,13 +194,38 @@ def plant_crop_db(user_id, crop_name):
     update_field_decay(user_id, persist=True)
 
     conn = connect_to_db()
-    cur = conn.cursor()
+    cur = conn.cursor(row_factory=dict_row)
 
-    cur.execute("SELECT item_id FROM items WHERE item_name = %s AND item_type = 'Seed';", (crop_name,))
-    item_id = cur.fetchone()[0]
+    cur.execute("SELECT item_id FROM items WHERE item_name = %s AND item_type = 'Seed';", (crop_name + " Seed",))
+
+    item_id = cur.fetchone()['item_id']
+
+    if not item_id:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "INVALID_ITEM",
+                "message": f"Item '{crop_name}' cannot be planted."
+            }
+        }
 
     cur.execute("SELECT quantity FROM user_inventories WHERE user_id = %s AND item_id = %s;", (user_id, item_id))
-    quantity = cur.fetchone()[0]
+    
+    quantity = cur.fetchone()['quantity']
+    
+    if not quantity:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "SEED_QUANTITY_NOT_FOUND",
+                "message": "This user does not own this seed!"
+            }
+        }
+    
 
     if quantity <= 0:
         cur.close()
@@ -216,14 +241,14 @@ def plant_crop_db(user_id, crop_name):
     # Get total growth time given the crop name
     cur.execute("SELECT total_growth_time_seconds FROM crop_types WHERE crop_type = %s;", (crop_name,))
     crop_row = cur.fetchone()
-    total_growth_time = crop_row[0]
+    total_growth_time = crop_row['total_growth_time_seconds']
 
     # Increment num_planted in the player's field and get field_id
     cur.execute("""UPDATE fields 
                 SET num_planted = num_planted + %s WHERE user_id = %s
                 RETURNING field_id;""", (1, user_id))
     
-    field_id = cur.fetchone()[0]
+    field_id = cur.fetchone()['field_id']
     
     # Add row to planted_crops table
     cur.execute("""
@@ -232,6 +257,20 @@ def plant_crop_db(user_id, crop_name):
         VALUES 
             (%s, %s, %s, %s);
     """, (field_id, crop_name, 0, total_growth_time))
+    
+    remove_seed_result = remove_item_inventory_db(user_id, crop_name + " Seed")
+
+    if not remove_seed_result["ok"]:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": remove_seed_result["error"]["code"],
+                "message": remove_seed_result["error"]["message"]
+            }
+        }
 
     conn.commit()
     cur.close()
@@ -255,15 +294,20 @@ def load_user_field(user_id):
     """
 
     conn = connect_to_db()
-    cur = conn.cursor()
+    cur = conn.cursor(row_factory=dict_row)
 
     # Get the corresponding field row
     cur.execute("SELECT * FROM fields WHERE user_id = %s;", (user_id,))
     field_row = cur.fetchone()
-    field_id = field_row[0]
-    num_planted = field_row[2]
-    moisture_percent = field_row[3]
-    fertilizer_percent = field_row[4]
+    if not field_row:
+        cur.close()
+        conn.close()
+        return None
+
+    field_id = field_row['field_id']
+    num_planted = field_row['num_planted']
+    moisture_percent = field_row['moisture_percent']
+    fertilizer_percent = field_row['fertilizer_percent']
 
     cur.close()
     conn.close()
@@ -320,6 +364,8 @@ def get_item_id(item_name):
     item_row = cur.fetchone()
 
     if not item_row:
+        cur.close()
+        conn.close()
         return None
         #cur.close()
         #conn.close()
@@ -383,6 +429,8 @@ def add_item_inventory_db(user_id, item_name):
     item_id = get_item_id(item_name)
 
     if not item_id:
+        cur.close()
+        conn.close()
         return {
             "ok": False,
             "error": {
@@ -434,6 +482,8 @@ def remove_item_inventory_db(user_id, item_name):
     item_id = get_item_id(item_name)
 
     if not item_id:
+        cur.close()
+        conn.close()
         return {
             "ok": False,
             "error": {
@@ -447,6 +497,8 @@ def remove_item_inventory_db(user_id, item_name):
     inventory_row = cur.fetchone()
 
     if not inventory_row:
+        cur.close()
+        conn.close()
         return {
             "ok": False,
             "error": {
@@ -483,22 +535,25 @@ def harvest_crop_db(user_id, planted_crop_id):
 
     """
     conn = connect_to_db()
-    cur = conn.cursor()
+    cur = conn.cursor(row_factory=dict_row)
 
     update_field_decay(user_id, persist=True)
 
     # Decrement num_planted in the player's field and get field_id
-    cur.execute("""UPDATE fields 
-                SET num_planted = num_planted - %s WHERE user_id = %s
-                RETURNING field_id;""", (1, user_id))
+    cur.execute("""SELECT field_id FROM fields WHERE user_id = %s;""", (user_id,))
     
-    field_id = cur.fetchone()[0]
+    field_id = cur.fetchone()['field_id']
 
     if field_id is None:
-        print("Error: Field not found for user.")
         cur.close()
         conn.close()
-        return
+        return{
+            "ok": False,
+            "error": {
+                "code": "FIELD_NOT_FOUND",
+                "message": "This user does not have a field!"
+            }
+        }
    
     # Delete corresponding planted_crops table
     cur.execute("""
@@ -510,10 +565,41 @@ def harvest_crop_db(user_id, planted_crop_id):
             AND planted_crop_id = %s
         );
     """, (field_id, planted_crop_id))
+
+    if cur.rowcount == 0:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "CROP_NOT_FOUND",
+                "message": f"Planted crop with ID {planted_crop_id} not found in the user's field."
+            }
+        }
+
+    # Decrement num_planted in the player's field and get field_id
+    cur.execute("""UPDATE fields 
+                SET num_planted = num_planted - %s WHERE field_id = %s;""", 
+                (1, field_id))
     
+    if cur.rowcount == 0:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "FIELD_NOT_FOUND",
+                "message": "This user does not have a field!"
+            }
+        }
+
     conn.commit()
     cur.close()
     conn.close() 
+
+    return {
+        "ok": True
+    }
 
 
 def select_random_items(num_items):
@@ -579,12 +665,13 @@ def subtract_user_money_db(amount, user_id):
         user_id (int): The ID of the current user
     """
     conn = connect_to_db()
-    cur = conn.cursor()
+    cur = conn.cursor(row_factory=dict_row)
 
     cur.execute("SELECT money FROM users WHERE user_id = %s;", (user_id,))
-    current_money = cur.fetchone()[0]
 
-    if current_money is None:
+    current_money = cur.fetchone()['money']
+
+    if not current_money:
         cur.close()
         conn.close()
         return {
@@ -594,6 +681,7 @@ def subtract_user_money_db(amount, user_id):
                 "message": "User not found in the database."
             }
         }
+
     elif current_money < amount:
         cur.close()
         conn.close()
@@ -607,7 +695,7 @@ def subtract_user_money_db(amount, user_id):
 
     cur.execute("UPDATE users SET money = money - %s WHERE user_id = %s RETURNING money;", 
                 (amount, user_id))
-    new_money = cur.fetchone()['money']
+    new_money_val = cur.fetchone()['money']
 
     conn.commit()
     cur.close()
@@ -616,7 +704,59 @@ def subtract_user_money_db(amount, user_id):
     return {
         "ok": True,
         "data": {
-            "remaining_money": new_money
+            "remaining_money": new_money_val
+        }
+    }
+
+def add_user_money_db(amount, user_id):
+    """
+    Adds an amount of money to the user's row in the database
+
+    Args:
+        amount   (int): The value to add
+        user_id (int): The ID of the current user
+    """
+    conn = connect_to_db()
+    cur = conn.cursor(row_factory=dict_row)
+
+    cur.execute("SELECT money FROM users WHERE user_id = %s;", (user_id,))
+
+    current_money = cur.fetchone()['money']
+    
+    if not current_money:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found in the database."
+            }
+        }
+
+    if current_money is None:
+        cur.close()
+        conn.close()
+        return {
+            "ok": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found in the database."
+            }
+        }
+
+    cur.execute("UPDATE users SET money = money + %s WHERE user_id = %s RETURNING money;", 
+                (amount, user_id))
+    new_money_val = cur.fetchone()['money']
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {
+        "ok": True,
+        "data": {
+            "remaining_money": new_money_val
         }
     }
 

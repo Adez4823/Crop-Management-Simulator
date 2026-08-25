@@ -1,5 +1,5 @@
 import config
-from database import add_item_inventory_db, select_random_items, subtract_user_money_db
+from database import add_item_inventory_db, select_random_items, subtract_user_money_db, add_user_money_db
 
 def get_items_in_shop():
     """
@@ -75,13 +75,17 @@ def buy_item(user_id, item_name):
             
             add_item_result = add_item_inventory_db(user_id, item_name)
             if not add_item_result["ok"]:
+                add_money_result = add_user_money_db(user_id, item['buy_price'])
+                err_code = add_item_result["error"]["code"] + add_money_result["error"]["code"]
+                err_msg = add_item_result["error"]["message"] + add_money_result["error"]["message"]
                 return {
                     "ok": False,
                     "error": {
-                        "code": add_item_result["error"]["code"],
-                        "message": add_item_result["error"]["message"]
+                        "code": err_code,
+                        "message": err_msg
                     }
                 }
+            
             
             return {
                 "ok": True,
