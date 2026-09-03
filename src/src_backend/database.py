@@ -73,6 +73,30 @@ def create_tables():
                 ON CONFLICT DO NOTHING;
     """)
 
+    cur.execute("""SELECT CASE 
+                WHEN EXISTS (SELECT 1 FROM shop_items) 
+                THEN True ELSE False END 
+                AS shop_items_exist;
+                """
+            )
+    row = cur.fetchone()
+    shop_items_exist = row["shop_items_exist"]
+    
+    if not shop_items_exist:
+        cur.execute("SELECT * FROM items ORDER BY RANDOM() LIMIT %s;", (config.NUM_ITEMS_IN_SHOP,))
+        rows = cur.fetchall()
+
+        for item in rows:
+            item_id = item['item_id']
+            item_name = item['item_name']
+            item_type = item['item_type']
+            rarity = item['rarity']
+            buy_price = item['buy_price']
+
+            cur.execute("INSERT INTO shop_items (item_id, item_name, item_type, rarity, buy_price) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;", (item_id, item_name, item_type, rarity, buy_price))
+        now = datetime.now(timezone.utc)
+        cur.execute("UPDATE shop_items SET last_updated = %s;", (now,))
+
     conn.commit()
     cur.close()
     conn.close()
@@ -602,7 +626,7 @@ def harvest_crop_db(user_id, planted_crop_id):
     }
 
 
-def select_random_items(num_items):
+def select_shop_items(num_items):
     """
     Select x random rows from the items table for the shop
 
@@ -656,59 +680,96 @@ def select_random_items(num_items):
 
     return rows
 
-def subtract_user_money_db(amount, user_id):
+def buy_item(user_id, item_name):
     """
     Subtracts an amount of money from the user's row in the database
 
     Args:
-        amount   (int): The value to subtract
+        price   (int): The value to subtract
         user_id (int): The ID of the current user
     """
     conn = connect_to_db()
-    cur = conn.cursor(row_factory=dict_row)
+    try:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT buy_price FROM shop_items WHERE item_name = %s;", (item_name,))
+            
+            item = cur.fetchone()
+            if not item:
+                return {
+                    "ok": False,
+                    "error": {
+                        "code": "ITEM_NOT_FOUND",
+                        "message": "Item not found!"
+                    }
+                }
+            price = item['buy_price']
 
-    cur.execute("SELECT money FROM users WHERE user_id = %s;", (user_id,))
+            cur.execute( """UPDATE users SET money = money - %s
+                            WHERE user_id = %s
+                            RETURNING money
+                        """, (price, user_id))
 
-    current_money = cur.fetchone()['money']
+            row = cur.fetchone()
 
-    if not current_money:
-        cur.close()
-        conn.close()
-        return {
-            "ok": False,
-            "error": {
-                "code": "USER_NOT_FOUND",
-                "message": "User not found in the database."
+            if row is None:
+                conn.rollback()
+                return {
+                    "ok": False,
+                    "error": {
+                        "code": "USER_NOT_FOUND",
+                        "message": "User not found!"
+                    }
+                }
+            elif row["money"] < 0:
+                conn.rollback()
+                return {
+                    "ok": False,
+                    "error": {
+                        "code": "INSUFFICIENT_FUNDS",
+                        "message": "User does not have enough money to buy this item!"
+                    }
+                }
+                
+            
+        
+            cur.execute(
+                """
+                INSERT INTO user_inventories (user_id, item_id, quantity)
+                SELECT %s, item_id, 1
+                FROM items
+                WHERE item_name = %s
+                ON CONFLICT (user_id, item_id)
+                DO UPDATE SET quantity = user_inventories.quantity + 1;
+                """,
+                (user_id, item_name),
+            )
+
+            if cur.rowcount == 0:
+                conn.rollback()
+                return {
+                    "ok": False,
+                    "error": {
+                        "code": "ITEM_NOT_FOUND",
+                        "message": "Item does not exist!"
+                    }
+                }
+
+            conn.commit()
+
+            return {
+                "ok": True,
+                "data": {
+                    "remaining_money": row["money"]
+                }
             }
-        }
 
-    elif current_money < amount:
-        cur.close()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
         conn.close()
-        return {
-            "ok": False,
-            "error": {
-                "code": "INSUFFICIENT_FUNDS",
-                "message": "You don't have enough money to buy this item."
-            }
-        }
 
-    cur.execute("UPDATE users SET money = money - %s WHERE user_id = %s RETURNING money;", 
-                (amount, user_id))
-    new_money_val = cur.fetchone()['money']
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return {
-        "ok": True,
-        "data": {
-            "remaining_money": new_money_val
-        }
-    }
-
-def add_user_money_db(amount, user_id):
+def add_user_money_db(user_id, amount):
     """
     Adds an amount of money to the user's row in the database
 

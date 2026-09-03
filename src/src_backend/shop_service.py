@@ -1,5 +1,5 @@
 import config
-from database import add_item_inventory_db, select_random_items, subtract_user_money_db, add_user_money_db
+from database import add_item_inventory_db, select_shop_items, buy_item, add_user_money_db
 
 def get_items_in_shop():
     """
@@ -7,7 +7,7 @@ def get_items_in_shop():
 
     The service method that will return the items available in the shop in a response for the frontend
     """
-    item_rows = select_random_items(config.NUM_ITEMS_IN_SHOP)
+    item_rows = select_shop_items(config.NUM_ITEMS_IN_SHOP)
     shop_items = []
 
     if not item_rows:
@@ -41,7 +41,7 @@ def get_items_in_shop():
         }
     }
 
-def buy_item(user_id, item_name):
+def buy_shop_item(user_id, item_name):
     """
     Allows the user to buy an item from the shop
 
@@ -50,7 +50,7 @@ def buy_item(user_id, item_name):
         item_name (str): The name of the item to be bought
     """
 
-    shop_items = select_random_items(config.NUM_ITEMS_IN_SHOP)
+    shop_items = select_shop_items(config.NUM_ITEMS_IN_SHOP)
 
     if not shop_items:
         return {
@@ -63,35 +63,21 @@ def buy_item(user_id, item_name):
     
     for item in shop_items:
         if item['item_name'] == item_name:
-            subtract_money_result = subtract_user_money_db(user_id, item['buy_price'])
-            if not subtract_money_result["ok"]:
+            buy_item_result = buy_item(user_id, item['item_name'])
+            if not buy_item_result["ok"]:
                 return {
                     "ok": False,
                     "error": {
-                        "code": subtract_money_result["error"]["code"],
-                        "message": subtract_money_result["error"]["message"]
+                        "code": buy_item_result["error"]["code"],
+                        "message": buy_item_result["error"]["message"]
                     }
                 }
-            
-            add_item_result = add_item_inventory_db(user_id, item_name)
-            if not add_item_result["ok"]:
-                add_money_result = add_user_money_db(user_id, item['buy_price'])
-                err_code = add_item_result["error"]["code"] + add_money_result["error"]["code"]
-                err_msg = add_item_result["error"]["message"] + add_money_result["error"]["message"]
-                return {
-                    "ok": False,
-                    "error": {
-                        "code": err_code,
-                        "message": err_msg
-                    }
-                }
-            
             
             return {
                 "ok": True,
                 "data": {
                     "user": {
-                        "remaining_money": subtract_money_result['data']['remaining_money']
+                        "remaining_money": buy_item_result['data']['remaining_money']
                     },
                     "item_bought": {
                         "item_name": item_name,
@@ -99,6 +85,8 @@ def buy_item(user_id, item_name):
                     }
                 }
             }
+
+    # Selected item not found in the shop
     return {
         "ok": False,
         "error": {
